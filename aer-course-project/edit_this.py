@@ -48,6 +48,12 @@ except ImportError:
     # PyTest import.
     from . import example_custom_utils as ecu
 
+try:
+    import trajectory_gen
+except ImportError:
+    # PyTest import.
+    from . import trajectory_gen
+
 #########################
 # REPLACE THIS (END) ####
 #########################
@@ -130,23 +136,31 @@ class Controller():
         ecu.exampleFunction()
 
         # initial waypoint
+        # if use_firmware:
+        #     waypoints = [(self.initial_obs[0], self.initial_obs[2], initial_info["gate_dimensions"]["tall"]["height"])]  # Height is hardcoded scenario knowledge.
+        # else:
+        #     waypoints = [(self.initial_obs[0], self.initial_obs[2], self.initial_obs[4])]
         if use_firmware:
-            waypoints = [(self.initial_obs[0], self.initial_obs[2], initial_info["gate_dimensions"]["tall"]["height"])]  # Height is hardcoded scenario knowledge.
+            init_waypoint = (self.initial_obs[0], self.initial_obs[2], initial_info["gate_dimensions"]["tall"]["height"])  # Height is hardcoded scenario knowledge.
         else:
-            waypoints = [(self.initial_obs[0], self.initial_obs[2], self.initial_obs[4])]
+            init_waypoint = (self.initial_obs[0], self.initial_obs[2], self.initial_obs[4])
 
         # Example code: hardcode waypoints 
-        waypoints.append((-0.5, -3.0, 2.0))
-        waypoints.append((-0.5, -2.0, 2.0))
-        waypoints.append((-0.5, -1.0, 2.0))
-        waypoints.append((-0.5,  0.0, 2.0))
-        waypoints.append((-0.5,  1.0, 2.0))
-        waypoints.append((-0.5,  2.0, 2.0))
-        waypoints.append([initial_info["x_reference"][0], initial_info["x_reference"][2], initial_info["x_reference"][4]])
+        # waypoints.append((-0.5, -3.0, 2.0))
+        # waypoints.append((-0.5, -2.0, 2.0))
+        # waypoints.append((-0.5, -1.0, 2.0))
+        # waypoints.append((-0.5,  0.0, 2.0))
+        # waypoints.append((-0.5,  1.0, 2.0))
+        # waypoints.append((-0.5,  2.0, 2.0))
+        # waypoints.append([initial_info["x_reference"][0], initial_info["x_reference"][2], initial_info["x_reference"][4]])
+        circular_waypoints = trajectory_gen.genCirclularTrajectory(center=(0.0, -3.0, 1.0), radius=1, num_waypoints=25)
+        waypoints = trajectory_gen.genEquidistantPoints(init_waypoint, circular_waypoints[0], num_waypoints=5)
+
+        waypoints.extend(circular_waypoints)
 
         # Polynomial fit.
         self.waypoints = np.array(waypoints)
-        deg = 6
+        deg = 10
         t = np.arange(self.waypoints.shape[0])
         fx = np.poly1d(np.polyfit(t, self.waypoints[:,0], deg))
         fy = np.poly1d(np.polyfit(t, self.waypoints[:,1], deg))
@@ -204,6 +218,65 @@ class Controller():
         # print("The info. of the gates ")
         # print(self.NOMINAL_GATES)
 
+    #     if iteration == 0:
+    #         height = 1
+    #         duration = 2
+
+    #         command_type = Command(2)  # Take-off.
+    #         args = [height, duration]
+
+    #     # [INSTRUCTIONS] Example code for using cmdFullState interface   
+    #     elif iteration >= 3*self.CTRL_FREQ and iteration < 20*self.CTRL_FREQ:
+    #         step = min(iteration-3*self.CTRL_FREQ, len(self.ref_x) -1)
+    #         target_pos = np.array([self.ref_x[step], self.ref_y[step], self.ref_z[step]])
+    #         target_vel = np.zeros(3)
+    #         target_acc = np.zeros(3)
+    #         target_yaw = 0.
+    #         target_rpy_rates = np.zeros(3)
+
+    #         command_type = Command(1)  # cmdFullState.
+    #         args = [target_pos, target_vel, target_acc, target_yaw, target_rpy_rates]
+
+    #     elif iteration == 20*self.CTRL_FREQ:
+    #         command_type = Command(6)  # Notify setpoint stop.
+    #         args = []
+
+    #    # [INSTRUCTIONS] Example code for using goTo interface 
+    #     elif iteration == 20*self.CTRL_FREQ+1:
+    #         x = self.ref_x[-1]
+    #         y = self.ref_y[-1]
+    #         z = 1.5 
+    #         yaw = 0.
+    #         duration = 2.5
+
+    #         command_type = Command(5)  # goTo.
+    #         args = [[x, y, z], yaw, duration, False]
+
+    #     elif iteration == 23*self.CTRL_FREQ:
+    #         x = self.initial_obs[0]
+    #         y = self.initial_obs[2]
+    #         z = 1.5
+    #         yaw = 0.
+    #         duration = 6
+
+    #         command_type = Command(5)  # goTo.
+    #         args = [[x, y, z], yaw, duration, False]
+
+    #     elif iteration == 30*self.CTRL_FREQ:
+    #         height = 0.
+    #         duration = 3
+
+    #         command_type = Command(3)  # Land.
+    #         args = [height, duration]
+
+    #     elif iteration == 33*self.CTRL_FREQ-1:
+    #         command_type = Command(4)  # STOP command to be sent once the trajectory is completed.
+    #         args = []
+
+    #     else:
+    #         command_type = Command(0)  # None.
+    #         args = []
+
         if iteration == 0:
             height = 1
             duration = 2
@@ -229,9 +302,9 @@ class Controller():
 
        # [INSTRUCTIONS] Example code for using goTo interface 
         elif iteration == 20*self.CTRL_FREQ+1:
-            x = self.ref_x[-1]
-            y = self.ref_y[-1]
-            z = 1.5 
+            x = self.ref_x[0]
+            y = self.ref_y[0]
+            z = 1.
             yaw = 0.
             duration = 2.5
 
@@ -239,23 +312,13 @@ class Controller():
             args = [[x, y, z], yaw, duration, False]
 
         elif iteration == 23*self.CTRL_FREQ:
-            x = self.initial_obs[0]
-            y = self.initial_obs[2]
-            z = 1.5
-            yaw = 0.
-            duration = 6
-
-            command_type = Command(5)  # goTo.
-            args = [[x, y, z], yaw, duration, False]
-
-        elif iteration == 30*self.CTRL_FREQ:
             height = 0.
             duration = 3
 
             command_type = Command(3)  # Land.
             args = [height, duration]
 
-        elif iteration == 33*self.CTRL_FREQ-1:
+        elif iteration == 28*self.CTRL_FREQ-1:
             command_type = Command(4)  # STOP command to be sent once the trajectory is completed.
             args = []
 
