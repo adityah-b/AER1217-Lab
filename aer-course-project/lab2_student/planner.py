@@ -1,6 +1,6 @@
 """Write your proposed algorithm.
-[NOTE]: The idea for the final project is to plan the trajectory based on a sequence of gates 
-while considering the uncertainty of the obstacles. The students should show that the proposed 
+[NOTE]: The idea for the final project is to plan the trajectory based on a sequence of gates
+while considering the uncertainty of the obstacles. The students should show that the proposed
 algorithm is able to safely navigate a quadrotor to complete the task in both simulation and
 real-world experiments.
 
@@ -68,7 +68,8 @@ class Controller():
 
         """
         # [initial_info["x_reference"][0], initial_info["x_reference"][2], initial_info["x_reference"][4]]
-        self.tolerance =  initial_info["tracking_tolerance"]
+        # self.tolerance =  initial_info["tracking_tolerance"]
+        self.tolerance = 0.001
         self.radius = circle_radius
         # Save environment and control parameters.
         self.CTRL_TIMESTEP = initial_info["ctrl_timestep"]
@@ -78,7 +79,7 @@ class Controller():
         self.BUFFER_SIZE = buffer_size
 
         # Store a priori scenario information.
-        # plan the trajectory based on the information of the (1) gates and (2) obstacles. 
+        # plan the trajectory based on the information of the (1) gates and (2) obstacles.
         self.NOMINAL_GATES = initial_info["nominal_gates_pos_and_type"]
         self.NOMINAL_OBSTACLES = initial_info["nominal_obstacles_pos"]
 
@@ -119,7 +120,7 @@ class Controller():
             ref_x.append((radius) * math.cos(omega * t) - bias_pos[0] + init_pos[0])
             ref_y.append((radius) * math.sin(omega * t) - bias_pos[1] + init_pos[1])
             ref_z.append( - bias_pos[2] + init_pos[2])
-        self.draw_trajectory(initial_info, np.array(ref_x), np.array(ref_y), np.array(ref_z))   
+        self.draw_trajectory(initial_info, np.array(ref_x), np.array(ref_y), np.array(ref_z))
 
     def draw_trajectory(self, initial_info,
                         ref_x,
@@ -193,7 +194,7 @@ class Controller():
         if self.ctrl is None:
             raise RuntimeError("[ERROR] Attempting to use method 'getRef' but Controller was created with 'use_firmware' = True.")
 
-        # Get the desired speed 
+        # Get the desired speed
         self.desired_speed = self.initial_obs[3]
         # Get the desired angular velocity
         self.omega = self.desired_speed / self.radius
@@ -233,7 +234,7 @@ class Controller():
         self.interstep_counter = 0
         self.interepisode_counter = 0
 
-    # NOTE: this function is not used in the course project. 
+    # NOTE: this function is not used in the course project.
     def interEpisodeReset(self):
         """Initialize/reset learning timing variables.
 

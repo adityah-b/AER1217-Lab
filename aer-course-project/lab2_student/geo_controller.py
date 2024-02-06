@@ -47,6 +47,10 @@ class GeoController():
         self.MIN_PWM = min_pwm
         self.MAX_PWM = max_pwm
         self.MIXER_MATRIX = np.array([[.5, -.5, 1], [.5, .5, -1], [-.5, .5, 1], [-.5, -.5, -1]])
+
+        self.K_pos = 10
+        self.K_vel = 5
+
         self.reset()
 
     def reset(self):
@@ -121,7 +125,7 @@ class GeoController():
                                  target_vel, # reference velocity
                                  target_acc  # reference acceleration
                                  ):
-        
+
 
         #---------Lab2: Design a geomtric controller--------#
 
@@ -137,10 +141,37 @@ class GeoController():
         desired_euler = np.zeros(3)
 
         #---------Tip 1: Compute the desired acceration command--------#
-        
+        desired_accel = self.K_pos * pos_e + self.K_vel * vel_e
+        accel_norm = np.linalg.norm(desired_accel)
+        # print(f"desired_accel = {desired_accel}")
+
         #---------Tip 2: Compute the desired thrust command--------#
+        desired_thrust = self.mass * accel_norm
+        # print(f"desired_thrust = {desired_thrust}")
 
         #---------Tip 3: Compute the desired attitude command--------#
+        cur_rpy = Rotation.from_quat(cur_quat).as_euler('xyz')
+        # print(f"cur_rpy = {cur_rpy}")
+
+        if accel_norm == 0:
+            desired_euler = Rotation.from_matrix(np.eye(3)).as_euler('xyz')
+        else:
+            X_C = np.array([ np.cos(cur_rpy[2]), np.sin(cur_rpy[2]), 0.0])
+            Y_C = np.array([-np.sin(cur_rpy[2]), np.cos(cur_rpy[2]), 0.0])
+
+            Z_B = desired_accel / accel_norm
+            X_B = np.cross(Y_C, Z_B)
+            X_B = X_B / np.linalg.norm(X_B)
+            Y_B = np.cross(Z_B, X_B)
+
+            # print(f"X_B = {X_B}")
+            # print(f"Y_B = {Y_B}")
+            # print(f"Z_B = {Z_B}")
+
+            R = np.stack([X_B, Y_B, Z_B], axis=1)
+            # print(f"R = {R}")
+
+            desired_euler = Rotation.from_matrix(R).as_euler('xyz')
 
         return desired_thrust, desired_euler, pos_e
 
