@@ -48,9 +48,6 @@ class GeoController():
         self.MAX_PWM = max_pwm
         self.MIXER_MATRIX = np.array([[.5, -.5, 1], [.5, .5, -1], [-.5, .5, 1], [-.5, -.5, -1]])
 
-        self.K_pos = 10
-        self.K_vel = 5
-
         self.reset()
 
     def reset(self):
@@ -129,6 +126,9 @@ class GeoController():
 
         #---------Lab2: Design a geomtric controller--------#
 
+        self.K_pos = 12
+        self.K_vel = 5
+
         reference_yaw = target_rpy[2]
 
         # tracking errors
@@ -141,7 +141,12 @@ class GeoController():
         desired_euler = np.zeros(3)
 
         #---------Tip 1: Compute the desired acceration command--------#
-        desired_accel = self.K_pos * pos_e + self.K_vel * vel_e
+        feedback_accel = self.K_pos * pos_e + self.K_vel * vel_e
+        # print(f"target_acc = {target_acc}")
+        # print(f"feedback_accel = {feedback_accel}")
+
+        desired_accel = target_acc + feedback_accel
+        desired_accel[2] += self.grav
         accel_norm = np.linalg.norm(desired_accel)
         # print(f"desired_accel = {desired_accel}")
 
