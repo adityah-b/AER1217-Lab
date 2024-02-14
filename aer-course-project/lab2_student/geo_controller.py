@@ -126,14 +126,24 @@ class GeoController():
 
         #---------Lab2: Design a geomtric controller--------#
 
-        self.K_pos = 12
-        self.K_vel = 5
+        self.K_pos_p = 12
+        self.K_pos_i = 0.1
+        self.K_pos_d = 1
+
+        self.K_vel_p = 8
+        self.K_vel_d = 2
 
         reference_yaw = target_rpy[2]
 
         # tracking errors
         pos_e = target_pos - cur_pos
+        # print(f"pos_e = {pos_e}")
+        pos_e_d = pos_e - self.last_pos_e
+        self.integral_pos_e += pos_e
+
         vel_e = target_vel - cur_vel
+        # print(f"vel_e = {vel_e}")
+        vel_e_d = vel_e - self.last_pos_e
 
         # You should compute a proper desired_thrust and desired_euler
         # such that the circle trajectory can be tracked
@@ -141,7 +151,8 @@ class GeoController():
         desired_euler = np.zeros(3)
 
         #---------Tip 1: Compute the desired acceration command--------#
-        feedback_accel = self.K_pos * pos_e + self.K_vel * vel_e
+        feedback_accel = self.K_pos_p * pos_e + self.K_pos_d * pos_e_d + self.K_pos_i * self.integral_pos_e \
+                       + self.K_vel_p * vel_e + self.K_vel_d * vel_e_d
         # print(f"target_acc = {target_acc}")
         # print(f"feedback_accel = {feedback_accel}")
 
