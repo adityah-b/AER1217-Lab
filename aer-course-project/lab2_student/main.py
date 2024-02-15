@@ -19,9 +19,10 @@ from rich import print
 from safe_control_gym.utils.configuration import ConfigFactory
 from safe_control_gym.utils.registration import make
 from safe_control_gym.utils.utils import sync
+import matplotlib.pyplot as plt
 
 try:
-    from project_utils import Command, thrusts
+    from project_utils import Command, thrusts, plot_trajectory
     from planner import Controller
 except ImportError:
     # Test import.
@@ -36,6 +37,99 @@ else:
     FIRMWARE_INSTALLED = True
 finally:
     print("Module 'cffirmware' available:", FIRMWARE_INSTALLED)
+
+def plot_position_data(current_position_data, target_position_data):
+        # Unpack the current positions into separate arrays for x, y, and z
+    curr_x = current_position_data[:, 0]
+    curr_y = current_position_data[:, 1]
+    curr_z = current_position_data[:, 2]
+    curr_yaw = current_position_data[:, 3]
+    # Unpack the target positions into separate arrays for x, y, and z
+    targ_x = target_position_data[:, 0]
+    targ_y = target_position_data[:, 1]
+    targ_z = target_position_data[:, 2]
+    targ_yaw = target_position_data[:, 3]
+
+    # Create a figure and a set of subplots
+    fig, axs = plt.subplots(4, 1, figsize=(10, 8))
+
+    # Plot x positions
+    axs[0].plot(curr_x, label='current')
+    axs[0].plot(targ_x, label='target')
+    axs[0].set_title('Target vs. Current X Positions')
+    axs[0].set_xlabel('time')
+    axs[0].set_ylabel('X Position')
+    axs[0].legend()
+
+    # Plot y positions
+    axs[1].plot(curr_y, label='current') # 'g' is the color green
+    axs[1].plot(targ_y, label='target')
+    axs[1].set_title('Target vs. Current Y Positions')
+    axs[1].set_xlabel('time')
+    axs[1].set_ylabel('Y Position')
+    axs[1].legend()
+
+    # Plot z positions
+    axs[2].plot(curr_z, label='current') # 'b' is the color blue
+    axs[2].plot(targ_z, label='target') # 'b' is the color blue
+    axs[2].set_title('Target vs. Current Z Positions')
+    axs[2].set_xlabel('time')
+    axs[2].set_ylabel('Z Position')
+    axs[2].legend()
+
+    # Plot yaw
+    axs[3].plot(curr_yaw, label='current') # 'b' is the color blue
+    axs[3].plot(targ_yaw, label='target') # 'b' is the color blue
+    axs[3].set_title('Target vs. Current Yaw')
+    axs[3].set_xlabel('time')
+    axs[3].set_ylabel('Yaw')
+    axs[3].legend()
+
+    # Adjust layout to prevent overlap
+    plt.tight_layout()
+
+    # Display the plots
+    plt.show()
+
+def plot_error_data(current_position_data, target_position_data):
+        # Unpack the current positions into separate arrays for x, y, and z
+    err_x = target_position_data[:, 0] - current_position_data[:, 0]
+    err_y = target_position_data[:, 1] - current_position_data[:, 1]
+    err_z = target_position_data[:, 2] - current_position_data[:, 2]
+    err_yaw = target_position_data[:, 3] - current_position_data[:, 3]
+
+    # Create a figure and a set of subplots
+    fig, axs = plt.subplots(4, 1, figsize=(10, 8))
+
+    # Plot x positions
+    axs[0].plot(err_x, 'r')
+    axs[0].set_title('X Position error')
+    axs[0].set_xlabel('time')
+    axs[0].set_ylabel('error')
+
+    # Plot y positions
+    axs[1].plot(err_y, 'r')
+    axs[1].set_title('Y Position error')
+    axs[1].set_xlabel('time')
+    axs[1].set_ylabel('error')
+
+    # Plot z positions
+    axs[2].plot(err_z, 'r')
+    axs[2].set_title('Z Position error')
+    axs[2].set_xlabel('time')
+    axs[2].set_ylabel('error')
+
+    # Plot yaw
+    axs[3].plot(err_yaw, 'r')
+    axs[3].set_title('Yaw error')
+    axs[3].set_xlabel('time')
+    axs[3].set_ylabel('error')
+
+    # Adjust layout to prevent overlap
+    plt.tight_layout()
+
+    # Display the plots
+    plt.show()
 
 
 def run(test=False):
@@ -119,7 +213,10 @@ def run(test=False):
     # Run an experiment.
     ep_start = time.time()
     first_ep_iteration = True
+
+    current_pos_list, target_pos_list = [], []
     for i in range(config.num_episodes*CTRL_FREQ*env.EPISODE_LEN_SEC):
+        # print(f"rate: {i}/{config.num_episodes*CTRL_FREQ*env.EPISODE_LEN_SEC}")
         # label for if the trajectory is complete
         complete = False
         # Elapsed sim time.
@@ -145,6 +242,8 @@ def run(test=False):
         # Get reference pos, vel, acc from the circle trajectory
         target_pos, target_vel, target_acc = ctrl.getRef(curr_time, obs, reward, done, info)
         # TODO: implement the geometric controller in the computeAction function
+        current_pos_list.append(np.array([obs[0],obs[2],obs[4], obs[8]]))
+        target_pos_list.append(np.append(target_pos, np.arctan2(target_vel[1], target_vel[0])))
         action = ctrl.computeAction(obs, target_pos, target_vel, target_acc)
         # Get new observation after taking the computed actions
         obs, reward, done, info = env.step(action)
@@ -213,6 +312,12 @@ def run(test=False):
             stats.append(episode_stats)
             # break the loop when the trajectory is complete
             break 
+
+    current_pos_data = np.array(current_pos_list)
+    target_pos_data = np.array(target_pos_list)
+    
+    plot_position_data(current_pos_data, target_pos_data)
+    plot_error_data(current_pos_data, target_pos_data)
 
     # Close the environment and print timing statistics.
     env.close()
