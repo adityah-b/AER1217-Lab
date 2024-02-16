@@ -39,7 +39,9 @@ finally:
     print("Module 'cffirmware' available:", FIRMWARE_INSTALLED)
 
 def plot_position_data(current_position_data, target_position_data):
-        # Unpack the current positions into separate arrays for x, y, and z
+    time = np.arange(6000) / 100
+
+    # Unpack the current positions into separate arrays for x, y, and z
     curr_x = current_position_data[:, 0]
     curr_y = current_position_data[:, 1]
     curr_z = current_position_data[:, 2]
@@ -54,35 +56,35 @@ def plot_position_data(current_position_data, target_position_data):
     fig, axs = plt.subplots(4, 1, figsize=(10, 8))
 
     # Plot x positions
-    axs[0].plot(curr_x, label='current')
-    axs[0].plot(targ_x, label='target')
+    axs[0].plot(time, curr_x, label='Current')
+    axs[0].plot(time, targ_x, label='Target')
     axs[0].set_title('Target vs. Current X Positions')
-    axs[0].set_xlabel('time')
-    axs[0].set_ylabel('X Position')
+    axs[0].set_xlabel('Time (s)')
+    axs[0].set_ylabel('X Position (m)')
     axs[0].legend()
 
     # Plot y positions
-    axs[1].plot(curr_y, label='current') # 'g' is the color green
-    axs[1].plot(targ_y, label='target')
+    axs[1].plot(time, curr_y, label='Current') # 'g' is the color green
+    axs[1].plot(time, targ_y, label='Target')
     axs[1].set_title('Target vs. Current Y Positions')
-    axs[1].set_xlabel('time')
-    axs[1].set_ylabel('Y Position')
+    axs[1].set_xlabel('Time (s)')
+    axs[1].set_ylabel('Y Position (m)')
     axs[1].legend()
 
     # Plot z positions
-    axs[2].plot(curr_z, label='current') # 'b' is the color blue
-    axs[2].plot(targ_z, label='target') # 'b' is the color blue
+    axs[2].plot(time, curr_z, label='Current') # 'b' is the color blue
+    axs[2].plot(time, targ_z, label='Target') # 'b' is the color blue
     axs[2].set_title('Target vs. Current Z Positions')
-    axs[2].set_xlabel('time')
-    axs[2].set_ylabel('Z Position')
+    axs[2].set_xlabel('Time (s)')
+    axs[2].set_ylabel('Z Position (m)')
     axs[2].legend()
 
     # Plot yaw
-    axs[3].plot(curr_yaw, label='current') # 'b' is the color blue
-    axs[3].plot(targ_yaw, label='target') # 'b' is the color blue
+    axs[3].plot(time, curr_yaw, label='Current') # 'b' is the color blue
+    axs[3].plot(time, targ_yaw, label='Target') # 'b' is the color blue
     axs[3].set_title('Target vs. Current Yaw')
-    axs[3].set_xlabel('time')
-    axs[3].set_ylabel('Yaw')
+    axs[3].set_xlabel('Time (s)')
+    axs[3].set_ylabel('Yaw (radians)')
     axs[3].legend()
 
     # Adjust layout to prevent overlap
@@ -92,7 +94,9 @@ def plot_position_data(current_position_data, target_position_data):
     plt.show()
 
 def plot_error_data(current_position_data, target_position_data):
-        # Unpack the current positions into separate arrays for x, y, and z
+    time = np.arange(6000) / 100
+
+    # Unpack the current positions into separate arrays for x, y, and z
     err_x = target_position_data[:, 0] - current_position_data[:, 0]
     err_y = target_position_data[:, 1] - current_position_data[:, 1]
     err_z = target_position_data[:, 2] - current_position_data[:, 2]
@@ -102,28 +106,28 @@ def plot_error_data(current_position_data, target_position_data):
     fig, axs = plt.subplots(4, 1, figsize=(10, 8))
 
     # Plot x positions
-    axs[0].plot(err_x, 'r')
-    axs[0].set_title('X Position error')
-    axs[0].set_xlabel('time')
-    axs[0].set_ylabel('error')
+    axs[0].plot(time, err_x, 'r')
+    axs[0].set_title('X Position Error')
+    axs[0].set_xlabel('Time (s)')
+    axs[0].set_ylabel('Error (m)')
 
     # Plot y positions
-    axs[1].plot(err_y, 'r')
-    axs[1].set_title('Y Position error')
-    axs[1].set_xlabel('time')
-    axs[1].set_ylabel('error')
+    axs[1].plot(time, err_y, 'r')
+    axs[1].set_title('Y Position Error')
+    axs[1].set_xlabel('Time (s)')
+    axs[1].set_ylabel('Error (m)')
 
     # Plot z positions
-    axs[2].plot(err_z, 'r')
-    axs[2].set_title('Z Position error')
-    axs[2].set_xlabel('time')
-    axs[2].set_ylabel('error')
+    axs[2].plot(time, err_z, 'r')
+    axs[2].set_title('Z Position Error')
+    axs[2].set_xlabel('Time (s)')
+    axs[2].set_ylabel('Error (m)')
 
     # Plot yaw
-    axs[3].plot(err_yaw, 'r')
-    axs[3].set_title('Yaw error')
-    axs[3].set_xlabel('time')
-    axs[3].set_ylabel('error')
+    axs[3].plot(time, err_yaw, 'r')
+    axs[3].set_title('Yaw Error')
+    axs[3].set_xlabel('Time (s)')
+    axs[3].set_ylabel('Error (radians)')
 
     # Adjust layout to prevent overlap
     plt.tight_layout()
@@ -243,7 +247,7 @@ def run(test=False):
         target_pos, target_vel, target_acc = ctrl.getRef(curr_time, obs, reward, done, info)
         # TODO: implement the geometric controller in the computeAction function
         current_pos_list.append(np.array([obs[0],obs[2],obs[4], obs[8]]))
-        target_pos_list.append(np.append(target_pos, np.arctan2(target_vel[1], target_vel[0])))
+        target_pos_list.append(np.append(target_pos, 0.0))
         action = ctrl.computeAction(obs, target_pos, target_vel, target_acc)
         # Get new observation after taking the computed actions
         obs, reward, done, info = env.step(action)

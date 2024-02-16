@@ -126,24 +126,27 @@ class GeoController():
 
         #---------Lab2: Design a geomtric controller--------#
 
-        self.K_pos_p = 12
-        self.K_pos_i = 0.1
-        self.K_pos_d = 1
+        ## PID constants ##
+        self.K_pos_p = np.diag([20.0, 25.0, 15.0])
+        self.K_pos_i = np.diag([0.4, 0.4, 0.15])
+        self.K_vel_d = np.diag([10.0, 15.0, 10.0])
 
-        self.K_vel_p = 8
-        self.K_vel_d = 2
+        # self.K_pos_p = np.diag([12.0, 12.0, 12.0])
+        # self.K_pos_i = np.diag([0.1, 0.1, 0.1])
+        # self.K_pos_d = 1
+
+        # self.K_vel_p = np.diag([8.0, 8.0, 8.0])
+        # self.K_vel_d = 2
 
         reference_yaw = target_rpy[2]
 
-        # tracking errors
+        ## Tracking errors ##
         pos_e = target_pos - cur_pos
-        # print(f"pos_e = {pos_e}")
-        pos_e_d = pos_e - self.last_pos_e
         self.integral_pos_e += pos_e
-
         vel_e = target_vel - cur_vel
-        # print(f"vel_e = {vel_e}")
-        vel_e_d = vel_e - self.last_pos_e
+        
+        # pos_e_d = pos_e - self.last_pos_e
+        # vel_e_d = vel_e - self.last_pos_e
 
         # You should compute a proper desired_thrust and desired_euler
         # such that the circle trajectory can be tracked
@@ -151,42 +154,38 @@ class GeoController():
         desired_euler = np.zeros(3)
 
         #---------Tip 1: Compute the desired acceration command--------#
-        feedback_accel = self.K_pos_p * pos_e + self.K_pos_d * pos_e_d + self.K_pos_i * self.integral_pos_e \
-                       + self.K_vel_p * vel_e + self.K_vel_d * vel_e_d
-        # print(f"target_acc = {target_acc}")
-        # print(f"feedback_accel = {feedback_accel}")
+        # feedback_accel = self.K_pos_p * pos_e + self.K_pos_d * pos_e_d + self.K_pos_i * self.integral_pos_e \
+        #                + self.K_vel_p * vel_e + self.K_vel_d * vel_e_d
+
+        feedback_accel = self.K_pos_p @ pos_e + self.K_pos_i @ self.integral_pos_e \
+                       + self.K_vel_d @ vel_e
 
         desired_accel = target_acc + feedback_accel
         desired_accel[2] += self.grav
         accel_norm = np.linalg.norm(desired_accel)
-        # print(f"desired_accel = {desired_accel}")
 
         #---------Tip 2: Compute the desired thrust command--------#
         desired_thrust = self.mass * accel_norm
-        # print(f"desired_thrust = {desired_thrust}")
 
         #---------Tip 3: Compute the desired attitude command--------#
         cur_rpy = Rotation.from_quat(cur_quat).as_euler('xyz')
-        # print(f"cur_rpy = {cur_rpy}")
 
+        # Set to unity orientation if 0 magnitude desired acceleration
         if accel_norm == 0:
             desired_euler = Rotation.from_matrix(np.eye(3)).as_euler('xyz')
         else:
-            X_C = np.array([ np.cos(cur_rpy[2]), np.sin(cur_rpy[2]), 0.0])
-            Y_C = np.array([-np.sin(cur_rpy[2]), np.cos(cur_rpy[2]), 0.0])
+            X_C = np.array([ np.cos(0), np.sin(0), 0.0])
+            Y_C = np.array([-np.sin(0), np.cos(0), 0.0])
 
             Z_B = desired_accel / accel_norm
             X_B = np.cross(Y_C, Z_B)
             X_B = X_B / np.linalg.norm(X_B)
             Y_B = np.cross(Z_B, X_B)
 
-            # print(f"X_B = {X_B}")
-            # print(f"Y_B = {Y_B}")
-            # print(f"Z_B = {Z_B}")
-
+            # Setup rotation matrix
             R = np.stack([X_B, Y_B, Z_B], axis=1)
-            # print(f"R = {R}")
 
+            # Get Euler angles
             desired_euler = Rotation.from_matrix(R).as_euler('xyz')
 
         return desired_thrust, desired_euler, pos_e
