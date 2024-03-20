@@ -18,7 +18,7 @@ mat_intrisnic = np.array([
     [  0.00,   0.00,   1.00]
 ])
 
-distortion_coefs = np.array([0.191887, 0.563680, 0.003676, 0.002037, 0.000000])
+distortion_coefs = np.array([0.191887, -0.563680, -0.003676, -0.002037, 0.000000])
 
 # the symbol is defined differently from the lab handout
 # in the lab the subscript CB is for coordinate frame transformation from
