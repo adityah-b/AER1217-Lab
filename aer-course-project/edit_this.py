@@ -48,6 +48,8 @@ except ImportError:
     # PyTest import.
     from . import example_custom_utils as ecu
 
+import path_planner as pp
+
 #########################
 # REPLACE THIS (END) ####
 #########################
@@ -124,6 +126,8 @@ class Controller():
         #########################
         # REPLACE THIS (START) ##
         #########################
+        pp.PathPlanner(self.initial_obs, initial_info)
+        exit()
         ## generate waypoints for planning
 
         # Call a function in module `example_custom_utils`.
