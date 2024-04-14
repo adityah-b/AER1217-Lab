@@ -37,7 +37,6 @@ class PathPlanner:
             initial_info: dict,
             x_bound: list = [-3.5, 3.5],
             y_bound: list = [-3.5, 3.5],
-            grid_resolution: float = 0.005,
             robot_radius: float = 0.05) -> None:
 
         ###############################
@@ -107,19 +106,6 @@ class PathPlanner:
         # Robot properties
         ####################
         self.ROBOT_RADIUS = robot_radius
-
-        ##################
-        # Occupancy grid
-        ##################
-        self.GRID_RESOLUTION = grid_resolution
-
-        # Construct sparse occupancy grid points
-        grid_obstacles, grid_gates = self.constructOccupancyGrid()
-        self.OCCUPANCY_GRID_POINTS = np.vstack([grid_obstacles, grid_gates])
-        # self.OCCUPANCY_GRID_GATE_POINTS = grid_gates
-
-        # Construct occupancy grid KD-Tree
-        self.OCCUPANCY_KD_TREE = KDTree(self.OCCUPANCY_GRID_POINTS)
 
         #################################
         # Planning algorithm properties
@@ -285,15 +271,22 @@ class PathPlanner:
         return start_states, goal_states
 
     # TODO: Add obstacles for gate edges
-    def constructOccupancyGrid(self):
+    def constructOccupancyGrid(self, grid_resolution=0.005):
+        self.GRID_RESOLUTION = grid_resolution
+
         # Get 2D x-y coordinates of obstacle positions
         obstacle_points = self.OBSTACLE_LOCATIONS[:, :2]
         if DEBUG: print(f'2D OBS POINTS: {obstacle_points}')
 
         # Get discretized grid points of filled obstacle regions
         grid_obstacles = self.__fillGridObstacles(obstacle_points)
-
         grid_gates = self.__fillGridGates(self.GATE_LOCATIONS)
+
+        self.OCCUPANCY_GRID_POINTS = np.vstack([grid_obstacles, grid_gates])
+        # self.OCCUPANCY_GRID_GATE_POINTS = grid_gates
+
+        # Construct occupancy grid KD-Tree
+        self.OCCUPANCY_KD_TREE = KDTree(self.OCCUPANCY_GRID_POINTS)
 
         return grid_obstacles, grid_gates
 

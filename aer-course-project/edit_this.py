@@ -1,6 +1,6 @@
 """Write your proposed algorithm.
-[NOTE]: The idea for the final project is to plan the trajectory based on a sequence of gates 
-while considering the uncertainty of the obstacles. The students should show that the proposed 
+[NOTE]: The idea for the final project is to plan the trajectory based on a sequence of gates
+while considering the uncertainty of the obstacles. The students should show that the proposed
 algorithm is able to safely navigate a quadrotor to complete the task in both simulation and
 real-world experiments.
 
@@ -92,7 +92,7 @@ class Controller():
         self.BUFFER_SIZE = buffer_size
 
         # Store a priori scenario information.
-        # plan the trajectory based on the information of the (1) gates and (2) obstacles. 
+        # plan the trajectory based on the information of the (1) gates and (2) obstacles.
         self.NOMINAL_GATES = initial_info["nominal_gates_pos_and_type"]
         self.NOMINAL_OBSTACLES = initial_info["nominal_obstacles_pos"]
 
@@ -101,7 +101,7 @@ class Controller():
             self.ctrl = None
         else:
             # Initialize a simple PID Controller for debugging and test.
-            # Do NOT use for the IROS 2022 competition. 
+            # Do NOT use for the IROS 2022 competition.
             self.ctrl = PIDController()
             # Save additonal environment parameters.
             self.KF = initial_info["quadrotor_kf"]
@@ -127,6 +127,7 @@ class Controller():
         # REPLACE THIS (START) ##
         #########################
         planner = pp.PathPlanner(self.initial_obs, initial_info)
+        planner.constructOccupancyGrid()
         path = planner.runFMT()
         planner.plotPath(path)
 
@@ -145,7 +146,7 @@ class Controller():
         for point in path:
             waypoints.append((point[0], point[1], 1.0))
         print(f'WAYPOINTS: {waypoints}')
-        # Example code: hardcode waypoints 
+        # Example code: hardcode waypoints
         # waypoints.append((-0.5, -3.0, 2.0))
         # waypoints.append((-0.5, -2.0, 2.0))
         # waypoints.append((-0.5, -1.0, 2.0))
@@ -202,8 +203,8 @@ class Controller():
         if self.ctrl is not None:
             raise RuntimeError("[ERROR] Using method 'cmdFirmware' but Controller was created with 'use_firmware' = False.")
 
-        # [INSTRUCTIONS] 
-        # self.CTRL_FREQ is 30 (set in the getting_started.yaml file) 
+        # [INSTRUCTIONS]
+        # self.CTRL_FREQ is 30 (set in the getting_started.yaml file)
         # control input iteration indicates the number of control inputs sent to the quadrotor
         iteration = int(time*self.CTRL_FREQ)
 
@@ -221,7 +222,7 @@ class Controller():
             command_type = Command(2)  # Take-off.
             args = [height, duration]
 
-        # [INSTRUCTIONS] Example code for using cmdFullState interface   
+        # [INSTRUCTIONS] Example code for using cmdFullState interface
         elif iteration >= 3*self.CTRL_FREQ and iteration < 20*self.CTRL_FREQ:
             step = min(iteration-3*self.CTRL_FREQ, len(self.ref_x) -1)
             target_pos = np.array([self.ref_x[step], self.ref_y[step], self.ref_z[step]])
@@ -237,11 +238,11 @@ class Controller():
             command_type = Command(6)  # Notify setpoint stop.
             args = []
 
-       # [INSTRUCTIONS] Example code for using goTo interface 
+       # [INSTRUCTIONS] Example code for using goTo interface
         elif iteration == 20*self.CTRL_FREQ+1:
             x = self.ref_x[-1]
             y = self.ref_y[-1]
-            z = 1.5 
+            z = 1.5
             yaw = 0.
             duration = 2.5
 
@@ -337,7 +338,7 @@ class Controller():
         self.interstep_counter = 0
         self.interepisode_counter = 0
 
-    # NOTE: this function is not used in the course project. 
+    # NOTE: this function is not used in the course project.
     def interEpisodeReset(self):
         """Initialize/reset learning timing variables.
 
