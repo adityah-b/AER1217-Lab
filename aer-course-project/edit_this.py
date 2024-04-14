@@ -126,8 +126,11 @@ class Controller():
         #########################
         # REPLACE THIS (START) ##
         #########################
-        pp.PathPlanner(self.initial_obs, initial_info)
-        exit()
+        planner = pp.PathPlanner(self.initial_obs, initial_info)
+        path = planner.runFMT()
+        planner.plotPath(path)
+
+        # exit()
         ## generate waypoints for planning
 
         # Call a function in module `example_custom_utils`.
@@ -139,18 +142,21 @@ class Controller():
         else:
             waypoints = [(self.initial_obs[0], self.initial_obs[2], self.initial_obs[4])]
 
+        for point in path:
+            waypoints.append((point[0], point[1], 1.0))
+        print(f'WAYPOINTS: {waypoints}')
         # Example code: hardcode waypoints 
-        waypoints.append((-0.5, -3.0, 2.0))
-        waypoints.append((-0.5, -2.0, 2.0))
-        waypoints.append((-0.5, -1.0, 2.0))
-        waypoints.append((-0.5,  0.0, 2.0))
-        waypoints.append((-0.5,  1.0, 2.0))
-        waypoints.append((-0.5,  2.0, 2.0))
-        waypoints.append([initial_info["x_reference"][0], initial_info["x_reference"][2], initial_info["x_reference"][4]])
+        # waypoints.append((-0.5, -3.0, 2.0))
+        # waypoints.append((-0.5, -2.0, 2.0))
+        # waypoints.append((-0.5, -1.0, 2.0))
+        # waypoints.append((-0.5,  0.0, 2.0))
+        # waypoints.append((-0.5,  1.0, 2.0))
+        # waypoints.append((-0.5,  2.0, 2.0))
+        # waypoints.append([initial_info["x_reference"][0], initial_info["x_reference"][2], initial_info["x_reference"][4]])
 
         # Polynomial fit.
         self.waypoints = np.array(waypoints)
-        deg = 6
+        deg = 7
         t = np.arange(self.waypoints.shape[0])
         fx = np.poly1d(np.polyfit(t, self.waypoints[:,0], deg))
         fy = np.poly1d(np.polyfit(t, self.waypoints[:,1], deg))
