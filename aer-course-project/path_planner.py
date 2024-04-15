@@ -6,7 +6,7 @@ Can perform RRT* and FMT* path planning
 
 import numpy as np
 
-from pqdict import PQDict
+from pqdict import pqdict
 from scipy.spatial import KDTree
 
 from matplotlib import pyplot as plt
@@ -606,7 +606,7 @@ class PathPlanner:
 
         path_found = False
 
-        V_open = PQDict({
+        V_open = pqdict({
             0 : nodes[0].cost
         })
         V_closed = []
