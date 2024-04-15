@@ -48,7 +48,9 @@ except ImportError:
     # PyTest import.
     from . import example_custom_utils as ecu
 
+from constants import *
 import path_planner as pp
+
 
 #########################
 # REPLACE THIS (END) ####
@@ -96,6 +98,10 @@ class Controller():
         self.NOMINAL_GATES = initial_info["nominal_gates_pos_and_type"]
         self.NOMINAL_OBSTACLES = initial_info["nominal_obstacles_pos"]
 
+        # set start and end states
+        self.start_state = np.array([initial_obs[0], initial_obs[2], initial_obs[4]])
+        self.end_state   = np.array([initial_info['x_reference'][0], initial_info['x_reference'][2], initial_info['x_reference'][4]])
+
         # Check for pycffirmware.
         if use_firmware:
             self.ctrl = None
@@ -113,29 +119,29 @@ class Controller():
         # perform trajectory planning
         t_scaled = self.planning(use_firmware, initial_info)
 
+        self.curr_waypoint_idx = 0
+        self.curr_waypoint = None
+
         ## visualization
-        # Plot trajectory in each dimension and 3D.
-        plot_trajectory(t_scaled, self.waypoints, self.ref_x, self.ref_y, self.ref_z)
+        # # Plot trajectory in each dimension and 3D.
+        # plot_trajectory(t_scaled, self.waypoints)
 
         # Draw the trajectory on PyBullet's GUI.
-        draw_trajectory(initial_info, self.waypoints, self.ref_x, self.ref_y, self.ref_z)
+        draw_trajectory(initial_info, self.waypoints)
 
 
     def planning(self, use_firmware, initial_info):
         """Trajectory planning algorithm"""
+
         #########################
         # REPLACE THIS (START) ##
         #########################
+
+        # generate trajectory
         planner = pp.PathPlanner(self.initial_obs, initial_info)
         planner.constructOccupancyGrid()
         path = planner.runFMT()
         planner.plotPath(path)
-
-        # exit()
-        ## generate waypoints for planning
-
-        # Call a function in module `example_custom_utils`.
-        ecu.exampleFunction()
 
         # initial waypoint
         if use_firmware:
@@ -146,33 +152,17 @@ class Controller():
         for point in path:
             waypoints.append((point[0], point[1], 1.0))
         print(f'WAYPOINTS: {waypoints}')
-        # Example code: hardcode waypoints
-        # waypoints.append((-0.5, -3.0, 2.0))
-        # waypoints.append((-0.5, -2.0, 2.0))
-        # waypoints.append((-0.5, -1.0, 2.0))
-        # waypoints.append((-0.5,  0.0, 2.0))
-        # waypoints.append((-0.5,  1.0, 2.0))
-        # waypoints.append((-0.5,  2.0, 2.0))
-        # waypoints.append([initial_info["x_reference"][0], initial_info["x_reference"][2], initial_info["x_reference"][4]])
 
-        # Polynomial fit.
-        self.waypoints = np.array(waypoints)
-        deg = 7
-        t = np.arange(self.waypoints.shape[0])
-        fx = np.poly1d(np.polyfit(t, self.waypoints[:,0], deg))
-        fy = np.poly1d(np.polyfit(t, self.waypoints[:,1], deg))
-        fz = np.poly1d(np.polyfit(t, self.waypoints[:,2], deg))
-        duration = 15
-        t_scaled = np.linspace(t[0], t[-1], int(duration*self.CTRL_FREQ))
-        self.ref_x = fx(t_scaled)
-        self.ref_y = fy(t_scaled)
-        self.ref_z = fz(t_scaled)
+        self.waypoints = waypoints
+        self.num_waypoints = len(waypoints)
+        self.flight_state = FLIGHT_STATE_READY
 
         #########################
         # REPLACE THIS (END) ####
         #########################
 
-        return t_scaled
+        return None
+
 
     def cmdFirmware(self,
                     time,
@@ -212,8 +202,50 @@ class Controller():
         # REPLACE THIS (START) ##
         #########################
 
-        # print("The info. of the gates ")
-        # print(self.NOMINAL_GATES)
+        # initialize
+        command_type = Command(0) # NONE
+        args = []
+
+        # get current position
+        curr_pos = np.array([obs[0], obs[2], obs[4]])
+
+        # state machine
+        if self.flight_state == FLIGHT_STATE_TRACK:
+            err = np.linalg.norm(curr_pos - self.curr_waypoint)
+            if err < WAYPOINT_TRACKING_THRES:
+                self.curr_waypoint_idx += 1
+
+                if self.curr_waypoint_idx < self.num_waypoints:
+                    self.curr_waypoint = self.waypoints[self.curr_waypoint_idx]
+                else:
+                    self.flight_state = FLIGHT_STATE_LANDING
+                    command_type = Command(3) # Land
+                    height = 0.0
+                    duration = 1.0
+                    args = [height, duration]
+
+            command_type = Command(1) # track
+            err_pos = (self.curr_waypoint - curr_pos)
+            err_dir = err_pos / np.linalg.norm(err_pos)
+            position = curr_pos + err_dir * WAYPOINT_TRACKING_STEP_SIZE
+            velocity = err_dir * WAYPOINT_TRACKING_SPEED
+            # [position, velocity, acceleration, yaw, rpy_rates]
+            args = [position, velocity, np.zeros(3), 0, np.zeros(3)]
+
+        elif self.flight_state == FLIGHT_STATE_READY:
+            # transition state
+            self.flight_state = FLIGHT_STATE_TRACK
+            self.curr_waypoint = self.waypoints[0]
+
+        elif self.flight_state == FLIGHT_STATE_LANDING:
+            if np.linalg.norm(curr_pos - self.end_state) < WAYPOINT_TRACKING_THRES:
+                self.flight_state = FLIGHT_STATE_OFF
+                command_type = Command(4)  # STOP
+                args = []
+
+        return command_type, args
+
+
 
         if iteration == 0:
             height = 1

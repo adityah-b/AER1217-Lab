@@ -20,7 +20,7 @@ class Command(Enum):
     FINISHED = -1 # Args: None (exits the control loop)
     NONE = 0 # Args: None (do nothing)
 
-    FULLSTATE = 1 # Args: [pos, vel, acc, yaw, rpy_rate] 
+    FULLSTATE = 1 # Args: [pos, vel, acc, yaw, rpy_rate]
         # https://crazyswarm.readthedocs.io/en/latest/api.html#pycrazyswarm.crazyflie.Crazyflie.cmdFullState
     TAKEOFF = 2 # Args: [height, duration]
         # https://crazyswarm.readthedocs.io/en/latest/api.html#pycrazyswarm.crazyflie.Crazyflie.takeoff
@@ -281,9 +281,9 @@ def timing_ep(function):
 
 def plot_trajectory(t_scaled,
                     waypoints,
-                    ref_x,
-                    ref_y,
-                    ref_z
+                    ref_x=None,
+                    ref_y=None,
+                    ref_z=None
                     ):
     """Plot the trajectory with matplotlib.
 
@@ -313,28 +313,36 @@ def plot_trajectory(t_scaled,
 
 def draw_trajectory(initial_info,
                     waypoints,
-                    ref_x,
-                    ref_y,
-                    ref_z
+                    ref_x=None,
+                    ref_y=None,
+                    ref_z=None
                     ):
     """Draw a trajectory in PyBullet's GUI.
 
     """
+
     for point in waypoints:
         p.loadURDF(os.path.join(initial_info["urdf_dir"], "sphere.urdf"),
                    [point[0], point[1], point[2]],
                    p.getQuaternionFromEuler([0,0,0]),
                    physicsClientId=initial_info["pyb_client"])
-    step = int(ref_x.shape[0]/50)
-    for i in range(step, ref_x.shape[0], step):
-        p.addUserDebugLine(lineFromXYZ=[ref_x[i-step], ref_y[i-step], ref_z[i-step]],
-                           lineToXYZ=[ref_x[i], ref_y[i], ref_z[i]],
-                           lineColorRGB=[1, 0, 0], lineWidth=3,
-                           physicsClientId=initial_info["pyb_client"])
-    p.addUserDebugLine(lineFromXYZ=[ref_x[i], ref_y[i], ref_z[i]],
-                       lineToXYZ=[ref_x[-1], ref_y[-1], ref_z[-1]],
-                       lineColorRGB=[1, 0, 0], lineWidth=3,
-                       physicsClientId=initial_info["pyb_client"])
+
+    for i in range(len(waypoints) - 1):
+        p.addUserDebugLine(lineFromXYZ=[waypoints[i][0], waypoints[i][1], waypoints[i][2]],
+                        lineToXYZ=[waypoints[i+1][0], waypoints[i+1][1], waypoints[i+1][2]],
+                        lineColorRGB=[0, 0, 1], lineWidth=3,
+                        physicsClientId=initial_info["pyb_client"])
+
+    # step = int(ref_x.shape[0]/50)
+    # for i in range(step, ref_x.shape[0], step):
+    #     p.addUserDebugLine(lineFromXYZ=[ref_x[i-step], ref_y[i-step], ref_z[i-step]],
+    #                        lineToXYZ=[ref_x[i], ref_y[i], ref_z[i]],
+    #                        lineColorRGB=[1, 0, 0], lineWidth=3,
+    #                        physicsClientId=initial_info["pyb_client"])
+    # p.addUserDebugLine(lineFromXYZ=[ref_x[i], ref_y[i], ref_z[i]],
+    #                    lineToXYZ=[ref_x[-1], ref_y[-1], ref_z[-1]],
+    #                    lineColorRGB=[1, 0, 0], lineWidth=3,
+    #                    physicsClientId=initial_info["pyb_client"])
 
 def thrusts(controller,
             ctrl_timestep,
