@@ -227,8 +227,8 @@ class Controller():
             command_type = Command(1) # track
             err_pos = (self.curr_waypoint - curr_pos)
             err_dir = err_pos / np.linalg.norm(err_pos)
-            position = curr_pos + err_dir * WAYPOINT_TRACKING_STEP_SIZE
             velocity = err_dir * WAYPOINT_TRACKING_SPEED
+            position = curr_pos + velocity * WAYPOINT_TRACKING_STEP_SIZE
             # [position, velocity, acceleration, yaw, rpy_rates]
             args = [position, velocity, np.zeros(3), 0, np.zeros(3)]
 
