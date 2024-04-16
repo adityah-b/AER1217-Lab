@@ -149,11 +149,26 @@ class PathPlanner:
 
     #     return path
 
-    def runFMT(self):
+    def runFMT(
+            self,
+            num_points: int = 10000,
+            max_iters: int = 5000,
+            rn: float = 0.25):
         start_points, goal_points = self.__setupInitialTraj()
         path = []
+        sampled_points = np.array(self.__sampleNPoints(num_points=num_points))
         for i in range(len(start_points)):
-            nodes = self.fmt(start_point=start_points[i], goal_point=goal_points[i])
+            start_point_grid = self.__pointsToGrid(start_points[i])
+            goal_point_grid = self.__pointsToGrid(goal_points[i])
+            if DEBUG: print(f'START GRID: {start_point_grid}')
+            if DEBUG: print(f'GOAL GRID: {goal_point_grid}')
+            
+            nodes = self.fmt(
+                sampled_points=sampled_points.copy(),
+                start_point=start_point_grid,
+                goal_point=goal_point_grid,
+                max_iters=max_iters,
+                rn=rn)
             sub_path = [nodes[-1].point * self.GRID_RESOLUTION]
 
             path_end_idx = nodes[-1].parent
@@ -165,27 +180,6 @@ class PathPlanner:
 
         return path
 
-    # def plotPath(self, path):
-    #     fig, ax = plt.subplots()
-    #     ax.set_xlim((-3.5, 3.5))
-    #     ax.set_ylim((-3.5, 3.5))
-
-    #     x = list()
-    #     y = list()
-
-    #     for point in path:
-    #         x.append(point[0] * self.GRID_RESOLUTION)
-    #         y.append(point[1] * self.GRID_RESOLUTION)
-    #     # ax.plot(x, y, color='r', linewidth=1)
-    #     ax.scatter(x, y, color='b')
-
-    #     ax.scatter(path[0][0] * self.GRID_RESOLUTION, path[0][1] * self.GRID_RESOLUTION, color='g')
-    #     ax.scatter(path[-1][0] * self.GRID_RESOLUTION, path[-1][1] * self.GRID_RESOLUTION, color='g')
-    #     # ax.scatter(self.GATE_LOCATIONS[:, 0], self.GATE_LOCATIONS[:, 1], color='b')
-
-    #     if DEBUG: print(f'OCCUPANCY SHAPE: {self.OCCUPANCY_GRID_POINTS.shape}')
-    #     ax.scatter(self.OCCUPANCY_GRID_POINTS[:, 0] * self.GRID_RESOLUTION, self.OCCUPANCY_GRID_POINTS[:, 1] * self.GRID_RESOLUTION, color='r')
-    #     plt.show()
     def plotPath(self, path):
         fig, ax = plt.subplots()
         ax.set_xlim((-3.5, 3.5))
@@ -584,21 +578,14 @@ class PathPlanner:
         return no_collision
 
     def fmt(self,
-            num_points: int = 10000,
-            start_point = None,
-            goal_point = None,
-            max_iters: int = 5000,
-            rn: float = 100.0):
+            sampled_points,
+            start_point,
+            goal_point,
+            max_iters,
+            rn):
 
-        start_point_grid = self.__pointsToGrid(start_point)
-        goal_point_grid = self.__pointsToGrid(goal_point)
-        if DEBUG: print(f'START GRID: {start_point_grid}')
-        if DEBUG: print(f'GOAL GRID: {goal_point_grid}')
-
-        sampled_points = self.__sampleNPoints(
-            start_point=start_point_grid,
-            goal_point=goal_point_grid,
-            num_points=num_points)
+        sampled_points[0] = start_point
+        sampled_points[-1] = goal_point
         nodes = np.array([Node(sampled_point) for sampled_point in sampled_points])
         if DEBUG: print(f'NODE SHAPE: {nodes.shape}')
 
@@ -610,8 +597,8 @@ class PathPlanner:
             0 : nodes[0].cost
         })
         V_closed = []
-        V_unvisited = list(range(len(nodes)))
-        V_unvisited.remove(0)
+        V_unvisited = np.arange(0, len(nodes), 1)
+        V_unvisited[0] = -1
         if DEBUG: print(f'V_OPEN SHAPE: {len(V_open)}')
         # if DEBUG: print(f'V_UNVISITED SHAPE: {V_unvisited.shape}')
 
@@ -622,7 +609,7 @@ class PathPlanner:
         # while not np.all(z.point == goal_point_grid):
         for _ in range(max_iters):
             # Find all nodes within radius rn from z
-            N_z_indices = nn_kd_tree.query_ball_point(z.point, rn)
+            N_z_indices = nn_kd_tree.query_ball_point(z.point, rn / self.GRID_RESOLUTION)
             if DEBUG: print(f'Z NEIGHBOURS: {N_z_indices}')
 
             # Filter nodes only belonging to unvisited set
@@ -633,7 +620,7 @@ class PathPlanner:
 
             for x, x_idx in zip(X_near, X_near_indices):
                 # Find all nodes within radius rn from x
-                N_x_indices = nn_kd_tree.query_ball_point(x.point, rn)
+                N_x_indices = nn_kd_tree.query_ball_point(x.point, rn / self.GRID_RESOLUTION)
                 # if DEBUG: print(f'X NEIGHBOURS: {N_x_indices}')
 
                 # Filter nodes only belonging to open set
@@ -662,8 +649,7 @@ class PathPlanner:
                     else:
                         V_open.additem(x_idx, y_min_cost)
 
-                    # V_unvisited[x_idx] = -1
-                    V_unvisited.remove(x_idx)
+                    V_unvisited[x_idx] = -1
 
             V_open.pop(z_idx)
             V_closed.append(z_idx)
@@ -675,7 +661,7 @@ class PathPlanner:
             z_idx = V_open.top()
             z = nodes[z_idx]
 
-            if np.all(z.point == goal_point_grid):
+            if np.all(z.point == goal_point):
             # if z_idx == len(nodes) - 1:
                 if DEBUG: print(f'GOAL POINT FOUND')
                 path_found = True
