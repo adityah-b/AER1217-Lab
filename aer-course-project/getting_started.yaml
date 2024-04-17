@@ -11,7 +11,7 @@ quadrotor_config:
   seed: 1337 # Random seed
   reseed_on_reset: True # Whether to re-seed the random number generator between episodes
   gui: True # Whether to spawn PyBullet's GUI
-  camera_view: [5, -40, -40, 0.5, -1, 0.5] # Distance, yaw, pitch, x, y, z target position 
+  camera_view: [5, -40, -40, 0.5, -1, 0.5] # Distance, yaw, pitch, x, y, z target position
 
   # top-down camera view [5, 0, 275, 0.5, -1, 0.5]
 
@@ -24,7 +24,7 @@ quadrotor_config:
   done_on_collision: True # Whether `done` becomes True when a collision happens
   cost: competition  # Sparse reward function, if you desire, re-implement it in Quadrotor._get_reward()
                      # github.com/utiasDSL/safe-control-gym/blob/beta-iros-competition/safe_control_gym/envs/gym_pybullet_drones/quadrotor.py
-  
+
   task: stabilization
   task_info:
     stabilization_goal: [-0.5, 2.0, 1.0]  # Final goal (target position in x-y-z)
@@ -50,11 +50,16 @@ quadrotor_config:
   # type (0: `tall` obstacle, 1: `low` obstacle)
   # NOTE: please do not modify the sequence of the original gates and obstacles defined below
   gates:
-    [  # x, y, z, r, p, y, type 
+    [  # x, y, z, r, p, y, type
       [ 0.5, -2.5, 0, 0, 0, -1.57, 0],      # gate 1
       [ 2.0, -1.5, 0, 0, 0, 0,     0],      # gate 2
       [ 0.0,  0.2, 0, 0, 0, 1.57,  0],      # gate 3
       [-0.5,  1.5, 0, 0, 0, 0,     0]       # gate 4
+
+      # [ 2.0, -1.5, 0, 0, 0, 0,     0],      # gate 2
+      # [ 0.5, -2.5, 0, 0, 0, -1.57, 0],      # gate 1
+      # [-0.5,  1.5, 0, 0, 0, 0,     0],      # gate 4
+      # [ 0.0,  0.2, 0, 0, 0, 1.57,  0]       # gate 3
     ]
   obstacles:
     [  # x, y, z, r, p, y
@@ -67,11 +72,11 @@ quadrotor_config:
   # Randomization of the initial state
   randomized_init: False
   init_state_randomization_info:
-    init_x: 
+    init_x:
       distrib: "uniform"
       low: -0.1
       high: 0.1
-    init_y: 
+    init_y:
       distrib: "uniform"
       low: -0.1
       high: 0.1
@@ -169,8 +174,10 @@ quadrotor_config:
     # Random external force applied to the quadrotor (e.g. a push or wind)
     dynamics:
       - disturbance_func: uniform
-        low: [-0.1, -0.1, -0.1]
-        high: [0.1, 0.1, 0.1]
+        low: [-0.0, -0.0, -0.0]
+        high: [0.0, 0.0, 0.0]
+        # low: [-0.1, -0.1, -0.1]
+        # high: [0.1, 0.1, 0.1]
 
 
 
