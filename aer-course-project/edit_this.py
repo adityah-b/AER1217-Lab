@@ -31,10 +31,10 @@ import numpy as np
 from collections import deque
 
 try:
-    from project_utils import Command, PIDController, timing_step, timing_ep, plot_trajectory, draw_trajectory
+    from project_utils import Command, PIDController, timing_step, timing_ep, plot_trajectory, draw_trajectory_in_gui
 except ImportError:
     # PyTest import.
-    from .project_utils import Command, PIDController, timing_step, timing_ep, plot_trajectory, draw_trajectory
+    from .project_utils import Command, PIDController, timing_step, timing_ep, plot_trajectory, draw_trajectory_in_gui
 
 #########################
 # REPLACE THIS (START) ##
@@ -127,7 +127,7 @@ class Controller():
         # plot_trajectory(t_scaled, self.waypoints)
 
         # Draw the trajectory on PyBullet's GUI.
-        draw_trajectory(initial_info, self.waypoints)
+        draw_trajectory_in_gui(initial_info, self.waypoints)
 
 
     def planning(self, use_firmware, initial_info):

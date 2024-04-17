@@ -311,6 +311,7 @@ def plot_trajectory(t_scaled,
     plt.pause(2)
     plt.close()
 
+
 def draw_trajectory(initial_info,
                     waypoints,
                     ref_x=None,
@@ -343,6 +344,23 @@ def draw_trajectory(initial_info,
     #                    lineToXYZ=[ref_x[-1], ref_y[-1], ref_z[-1]],
     #                    lineColorRGB=[1, 0, 0], lineWidth=3,
     #                    physicsClientId=initial_info["pyb_client"])
+
+
+def draw_trajectory_in_gui(initial_info, waypoints, color=[0, 0, 1]):
+    """Draw a trajectory in PyBullet's GUI"""
+
+    for point in waypoints:
+        p.loadURDF(os.path.join(initial_info["urdf_dir"], "sphere.urdf"),
+                   [point[0], point[1], point[2]],
+                   p.getQuaternionFromEuler([0,0,0]),
+                   physicsClientId=initial_info["pyb_client"])
+
+    for i in range(len(waypoints) - 1):
+        p.addUserDebugLine(lineFromXYZ=[waypoints[i][0], waypoints[i][1], waypoints[i][2]],
+                           lineToXYZ=[waypoints[i+1][0], waypoints[i+1][1], waypoints[i+1][2]],
+                           lineColorRGB=color, lineWidth=3,
+                           physicsClientId=initial_info["pyb_client"])
+
 
 def thrusts(controller,
             ctrl_timestep,
