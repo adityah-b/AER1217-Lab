@@ -226,8 +226,13 @@ class Controller():
 
             command_type = Command(1) # track
             err_pos = (self.curr_waypoint - curr_pos)
-            err_dir = err_pos / np.linalg.norm(err_pos)
-            velocity = err_dir * WAYPOINT_TRACKING_SPEED
+            err_norm = np.linalg.norm(err_pos)
+            err_dir = err_pos / err_norm
+            vel_norm = err_norm * WAYPOINT_TRACKING_SPEED_MAX
+            vel_norm = min(vel_norm, WAYPOINT_TRACKING_SPEED_MAX)
+            vel_norm = max(vel_norm, WAYPOINT_TRACKING_SPEED_MIN)
+            if DEBUG_WAYPOINT_TRACKING: print(vel_norm)
+            velocity = err_dir * vel_norm
             position = curr_pos + velocity * WAYPOINT_TRACKING_STEP_SIZE
             # [position, velocity, acceleration, yaw, rpy_rates]
             args = [position, velocity, np.zeros(3), 0, np.zeros(3)]
