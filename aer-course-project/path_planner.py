@@ -9,9 +9,8 @@ import numpy as np
 from pqdict import pqdict
 from scipy.spatial import KDTree
 
+from constants import *
 from matplotlib import pyplot as plt
-
-DEBUG = False
 
 
 class Node:
@@ -43,10 +42,10 @@ class PathPlanner:
         # Map boundaries
         ###############################
         self.X_BOUND = np.array(x_bound, dtype=np.float32)
-        if DEBUG: print(f'X_BOUND: {self.X_BOUND}')
+        if DEBUG_PATH_PLANNING: print(f'X_BOUND: {self.X_BOUND}')
 
         self.Y_BOUND = np.array(y_bound, dtype=np.float32)
-        if DEBUG: print(f'Y_BOUND: {self.Y_BOUND}')
+        if DEBUG_PATH_PLANNING: print(f'Y_BOUND: {self.Y_BOUND}')
 
         ###############################
         # Desired robot states
@@ -56,20 +55,20 @@ class PathPlanner:
             initial_obs[2],
             initial_obs[4]
         ], dtype=np.float32)
-        if DEBUG: print(f'START STATE: {self.START_STATE}')
+        if DEBUG_PATH_PLANNING: print(f'START STATE: {self.START_STATE}')
 
         self.GOAL_STATE = np.array([
             initial_info['x_reference'][0],
             initial_info['x_reference'][2],
             initial_info['x_reference'][4]
         ], dtype=np.float32)
-        if DEBUG: print(f'GOAL STATE: {self.GOAL_STATE}')
+        if DEBUG_PATH_PLANNING: print(f'GOAL STATE: {self.GOAL_STATE}')
 
         ###############################
         # Gate properties
         ###############################
         # self.GATE_DIMS = initial_info['gate_dimensions']
-        # if DEBUG: print(f'GATE DIMS: {self.GATE_DIMS}')
+        # if DEBUG_PATH_PLANNING: print(f'GATE DIMS: {self.GATE_DIMS}')
         # self.GATE_EDGE_LEN = (initial_info['gate_dimensions']['tall']['edge'] - 0.4) / 2.0
         self.GATE_INNER_EDGE_LEN = 0.4
         self.GATE_EDGE_LEN = 0.05
@@ -78,29 +77,29 @@ class PathPlanner:
         # Get x, y, z and yaw of gates (rad)
         self.GATE_LOCATIONS = np.array(initial_info['nominal_gates_pos_and_type'], dtype=np.float32)
         self.GATE_LOCATIONS = self.GATE_LOCATIONS[:, [0, 1, 2, 5]]
-        if DEBUG: print(f'GATE_LOCATIONS: {self.GATE_LOCATIONS}')
+        if DEBUG_PATH_PLANNING: print(f'GATE_LOCATIONS: {self.GATE_LOCATIONS}')
 
         ###############################
         # Obstacle properties
         ###############################
         # self.OBSTACLE_DIMS = initial_info['obstacle_dimensions']
-        # if DEBUG: print(f'OBSTACLE_DIMS: {self.OBSTACLE_DIMS}')
+        # if DEBUG_PATH_PLANNING: print(f'OBSTACLE_DIMS: {self.OBSTACLE_DIMS}')
         self.OBSTACLE_RADIUS = 0.06
-        if DEBUG: print(f'OBSTACLE_RADIUS: {self.OBSTACLE_RADIUS}')
+        if DEBUG_PATH_PLANNING: print(f'OBSTACLE_RADIUS: {self.OBSTACLE_RADIUS}')
 
         self.OBSTACLE_LOCATIONS = np.array([
             obs_loc[:3] for obs_loc in initial_info['nominal_obstacles_pos']
         ], dtype=np.float32)
-        if DEBUG: print(f'OBSTACLE_LOCATIONS: {self.OBSTACLE_LOCATIONS}')
+        if DEBUG_PATH_PLANNING: print(f'OBSTACLE_LOCATIONS: {self.OBSTACLE_LOCATIONS}')
 
         ###############################
         # Controller properties
         ###############################
         self.CTRL_TIMESTEP = initial_info["ctrl_timestep"]
-        if DEBUG: print(f'CTRL_TIMESTEP: {self.CTRL_TIMESTEP}')
+        if DEBUG_PATH_PLANNING: print(f'CTRL_TIMESTEP: {self.CTRL_TIMESTEP}')
 
         self.CTRL_FREQ = initial_info["ctrl_freq"]
-        if DEBUG: print(f'CTRL_FREQ: {self.CTRL_FREQ}')
+        if DEBUG_PATH_PLANNING: print(f'CTRL_FREQ: {self.CTRL_FREQ}')
 
         ####################
         # Robot properties
@@ -131,7 +130,7 @@ class PathPlanner:
         #     self.GOAL_STATE[:2]
         # ]
 
-        # if DEBUG: print(f'PATH: {path}')
+        # if DEBUG_PATH_PLANNING: print(f'PATH: {path}')
 
     # def runFMT(self):
     #     start_points, goal_points = self.__setupInitialTraj()
@@ -160,9 +159,9 @@ class PathPlanner:
         for i in range(len(start_points)):
             start_point_grid = self.__pointsToGrid(start_points[i])
             goal_point_grid = self.__pointsToGrid(goal_points[i])
-            if DEBUG: print(f'START GRID: {start_point_grid}')
-            if DEBUG: print(f'GOAL GRID: {goal_point_grid}')
-            
+            if DEBUG_PATH_PLANNING: print(f'START GRID: {start_point_grid}')
+            if DEBUG_PATH_PLANNING: print(f'GOAL GRID: {goal_point_grid}')
+
             nodes = self.fmt(
                 sampled_points=sampled_points.copy(),
                 start_point=start_point_grid,
@@ -198,7 +197,7 @@ class PathPlanner:
         ax.scatter(path[-1][0], path[-1][1], color='g')
         # ax.scatter(self.GATE_LOCATIONS[:, 0], self.GATE_LOCATIONS[:, 1], color='b')
 
-        if DEBUG: print(f'OCCUPANCY SHAPE: {self.OCCUPANCY_GRID_POINTS.shape}')
+        if DEBUG_PATH_PLANNING: print(f'OCCUPANCY SHAPE: {self.OCCUPANCY_GRID_POINTS.shape}')
         ax.scatter(self.OCCUPANCY_GRID_POINTS[:, 0] * self.GRID_RESOLUTION, self.OCCUPANCY_GRID_POINTS[:, 1] * self.GRID_RESOLUTION, color='r')
         plt.show()
 
@@ -210,21 +209,21 @@ class PathPlanner:
             gate_goal_1 = np.array([gate_location[0], gate_location[1] + waypoint_tolerance])
             gate_goal_2 = np.array([gate_location[0], gate_location[1] - waypoint_tolerance])
 
-            # if DEBUG: print(f'GATE GOAL 1: {gate_goal_1}')
-            # if DEBUG: print(f'GATE GOAL 2: {gate_goal_2}')
+            # if DEBUG_PATH_PLANNING: print(f'GATE GOAL 1: {gate_goal_1}')
+            # if DEBUG_PATH_PLANNING: print(f'GATE GOAL 2: {gate_goal_2}')
 
             gate_goals = np.vstack([
                 [self.__rotatePoint(gate_goal_1, gate_location[:2], gate_location[3])],
                 [self.__rotatePoint(gate_goal_2, gate_location[:2], gate_location[3])]
             ])
-            # if DEBUG: print(f'GATE GOALS SHAPE: {gate_goals.shape}')
+            # if DEBUG_PATH_PLANNING: print(f'GATE GOALS SHAPE: {gate_goals.shape}')
             gate_goal_states.append(gate_goals)
 
         return gate_goal_states
 
     def __setupInitialTraj(self):
         gate_goal_states = self.__addGoalStates()
-        # if DEBUG: print(f'GATE GOAL STATES: {gate_goal_states}')
+        # if DEBUG_PATH_PLANNING: print(f'GATE GOAL STATES: {gate_goal_states}')
 
         start_point = self.START_STATE[:2]
         goal_point = self.GOAL_STATE[:2]
@@ -235,16 +234,16 @@ class PathPlanner:
         cur_point = start_point
         idx = 0
         for i in range(len(gate_goal_states)):
-            if DEBUG: print(f'CUR_POINT: {cur_point}')
+            if DEBUG_PATH_PLANNING: print(f'CUR_POINT: {cur_point}')
             gate = self.GATE_LOCATIONS[i, :2].copy()
             gate_goals = gate_goal_states[i]
 
-            if DEBUG: print(f'GATE_GOALS: {gate_goals}')
+            if DEBUG_PATH_PLANNING: print(f'GATE_GOALS: {gate_goals}')
 
             dists = np.linalg.norm(gate_goals - cur_point, axis=1)
-            if DEBUG: print(f'DISTS: {dists}')
+            if DEBUG_PATH_PLANNING: print(f'DISTS: {dists}')
             closest_point = gate_goals[np.argmin(dists)]
-            if DEBUG: print(f'CLOSEST_POINT: {closest_point}')
+            if DEBUG_PATH_PLANNING: print(f'CLOSEST_POINT: {closest_point}')
 
             start_states.append(cur_point)
             goal_states.append(closest_point)
@@ -257,8 +256,8 @@ class PathPlanner:
             start_states.append(gate)
             goal_states.append(cur_point)
 
-        if DEBUG: print(f'START_STATES SHAPE: {len(start_states)}')
-        if DEBUG: print(f'GOAL_STATES SHAPE: {len(goal_states)}')
+        if DEBUG_PATH_PLANNING: print(f'START_STATES SHAPE: {len(start_states)}')
+        if DEBUG_PATH_PLANNING: print(f'GOAL_STATES SHAPE: {len(goal_states)}')
         start_states.append(cur_point)
         goal_states.append(goal_point)
 
@@ -270,7 +269,7 @@ class PathPlanner:
 
         # Get 2D x-y coordinates of obstacle positions
         obstacle_points = self.OBSTACLE_LOCATIONS[:, :2]
-        if DEBUG: print(f'2D OBS POINTS: {obstacle_points}')
+        if DEBUG_PATH_PLANNING: print(f'2D OBS POINTS: {obstacle_points}')
 
         # Get discretized grid points of filled obstacle regions
         grid_obstacles = self.__fillGridObstacles(obstacle_points)
@@ -399,7 +398,7 @@ class PathPlanner:
     def __fillRectangularObstacle(self, gate_pose):
         gate_center = gate_pose[:2]
         gate_yaw = gate_pose[3]
-        if DEBUG: print(f'GATE_YAW: {gate_yaw}')
+        if DEBUG_PATH_PLANNING: print(f'GATE_YAW: {gate_yaw}')
 
         gate_len = 2.0 * self.GATE_EDGE_LEN + self.GATE_INNER_EDGE_LEN
         gate_width = self.GATE_EDGE_WID
@@ -411,11 +410,11 @@ class PathPlanner:
             [gate_center[0] + gate_len / 2, gate_center[1] + gate_width / 2],
         ], dtype=np.float32)
 
-        if DEBUG: print(f'GATE CORNERS: {gate_corners}')
+        if DEBUG_PATH_PLANNING: print(f'GATE CORNERS: {gate_corners}')
 
         rotated_corners = np.array([
             self.__rotatePoint(gate_corner, gate_center, gate_yaw) for gate_corner in gate_corners])
-        if DEBUG: print(f'ROTATED GATE CORNERS: {rotated_corners}')
+        if DEBUG_PATH_PLANNING: print(f'ROTATED GATE CORNERS: {rotated_corners}')
 
         x_min = np.min(rotated_corners[:, 0])
         x_max = np.max(rotated_corners[:, 0])
@@ -539,8 +538,8 @@ class PathPlanner:
     #     pass
 
     def __checkCollision(self, nodeA, nodeB):
-        if DEBUG: print(f'NODE A: {nodeA.point}')
-        if DEBUG: print(f'NODE B: {nodeB.point}')
+        if DEBUG_PATH_PLANNING: print(f'NODE A: {nodeA.point}')
+        if DEBUG_PATH_PLANNING: print(f'NODE B: {nodeB.point}')
         points = []
         dx = abs(nodeB.point[0] - nodeA.point[0])
         dy = abs(nodeB.point[1] - nodeA.point[1])
@@ -571,9 +570,9 @@ class PathPlanner:
         no_collision = bool(np.min(nn_dists) > (self.ROBOT_RADIUS / self.GRID_RESOLUTION))
 
         if no_collision:
-            if DEBUG: print(f'NO COLLISION')
+            if DEBUG_PATH_PLANNING: print(f'NO COLLISION')
         else:
-            if DEBUG: print(f'COLLISION')
+            if DEBUG_PATH_PLANNING: print(f'COLLISION')
 
         return no_collision
 
@@ -587,7 +586,7 @@ class PathPlanner:
         sampled_points[0] = start_point
         sampled_points[-1] = goal_point
         nodes = np.array([Node(sampled_point) for sampled_point in sampled_points])
-        if DEBUG: print(f'NODE SHAPE: {nodes.shape}')
+        if DEBUG_PATH_PLANNING: print(f'NODE SHAPE: {nodes.shape}')
 
         nn_kd_tree = KDTree(sampled_points)
 
@@ -599,45 +598,45 @@ class PathPlanner:
         V_closed = []
         V_unvisited = np.arange(0, len(nodes), 1)
         V_unvisited[0] = -1
-        if DEBUG: print(f'V_OPEN SHAPE: {len(V_open)}')
-        # if DEBUG: print(f'V_UNVISITED SHAPE: {V_unvisited.shape}')
+        if DEBUG_PATH_PLANNING: print(f'V_OPEN SHAPE: {len(V_open)}')
+        # if DEBUG_PATH_PLANNING: print(f'V_UNVISITED SHAPE: {V_unvisited.shape}')
 
         z_idx = V_open[0]
         z = nodes[z_idx]
-        if DEBUG: print(f"Z START: {z.point}")
+        if DEBUG_PATH_PLANNING: print(f"Z START: {z.point}")
 
         # while not np.all(z.point == goal_point_grid):
         for _ in range(max_iters):
             # Find all nodes within radius rn from z
             N_z_indices = nn_kd_tree.query_ball_point(z.point, rn / self.GRID_RESOLUTION)
-            if DEBUG: print(f'Z NEIGHBOURS: {N_z_indices}')
+            if DEBUG_PATH_PLANNING: print(f'Z NEIGHBOURS: {N_z_indices}')
 
             # Filter nodes only belonging to unvisited set
             X_near_indices = np.intersect1d(N_z_indices, V_unvisited)
             X_near = nodes[X_near_indices]
-            # if DEBUG: print(f'X_NEAR: {[node.point for node in X_near]}')
-            if DEBUG: print(f'X_NEAR SHAPE: {X_near.shape}')
+            # if DEBUG_PATH_PLANNING: print(f'X_NEAR: {[node.point for node in X_near]}')
+            if DEBUG_PATH_PLANNING: print(f'X_NEAR SHAPE: {X_near.shape}')
 
             for x, x_idx in zip(X_near, X_near_indices):
                 # Find all nodes within radius rn from x
                 N_x_indices = nn_kd_tree.query_ball_point(x.point, rn / self.GRID_RESOLUTION)
-                # if DEBUG: print(f'X NEIGHBOURS: {N_x_indices}')
+                # if DEBUG_PATH_PLANNING: print(f'X NEIGHBOURS: {N_x_indices}')
 
                 # Filter nodes only belonging to open set
                 V_open_indices = np.array(list(V_open.keys()))
                 Y_near_indices = np.intersect1d(N_x_indices, V_open_indices)
                 Y_near = nodes[Y_near_indices]
-                if DEBUG: print(f'Y_NEAR SHAPE: {Y_near.shape}')
+                if DEBUG_PATH_PLANNING: print(f'Y_NEAR SHAPE: {Y_near.shape}')
 
                 # for y in Y_near:
-                #     if DEBUG: print(f'Y COST TO X: {y.GetCostToNode(x)}')
+                #     if DEBUG_PATH_PLANNING: print(f'Y COST TO X: {y.GetCostToNode(x)}')
 
                 Y_costs = np.array([V_open[y_idx] + nodes[y_idx].GetCostToNode(x) for y_idx in Y_near_indices])
                 y_min_cost = np.min(Y_costs)
                 y_min_idx = Y_near_indices[np.argmin(Y_costs)]
 
-                if DEBUG: print(f'Y_MIN_COST: {y_min_cost}')
-                if DEBUG: print(f'Y_MIN_IDX: {y_min_idx}')
+                if DEBUG_PATH_PLANNING: print(f'Y_MIN_COST: {y_min_cost}')
+                if DEBUG_PATH_PLANNING: print(f'Y_MIN_IDX: {y_min_idx}')
 
                 if self.__checkCollision(nodes[y_min_idx], nodes[x_idx]):
                     nodes[y_min_idx].children.append(x)
@@ -655,7 +654,7 @@ class PathPlanner:
             V_closed.append(z_idx)
 
             if len(V_open) == 0:
-                if DEBUG: print(f'OUT OF NODES')
+                if DEBUG_PATH_PLANNING: print(f'OUT OF NODES')
                 break
 
             z_idx = V_open.top()
@@ -663,13 +662,13 @@ class PathPlanner:
 
             if np.all(z.point == goal_point):
             # if z_idx == len(nodes) - 1:
-                if DEBUG: print(f'GOAL POINT FOUND')
+                if DEBUG_PATH_PLANNING: print(f'GOAL POINT FOUND')
                 path_found = True
                 break
 
         if path_found:
-            if DEBUG: print(f'PATH FOUND')
+            if DEBUG_PATH_PLANNING: print(f'PATH FOUND')
         else:
-            if DEBUG: print(f'NO PATH FOUND FAIL')
+            if DEBUG_PATH_PLANNING: print(f'NO PATH FOUND FAIL')
 
         return nodes if path_found else []

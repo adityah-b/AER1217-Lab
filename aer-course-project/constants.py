@@ -2,7 +2,8 @@
 
 
 # debug flags
-DEBUG_WAYPOINT_TRACKING = True
+DEBUG_PATH_PLANNING = False
+DEBUG_WAYPOINT_TRACKING = False
 
 # bounds
 X_BOUND_LOWER = -3.5
