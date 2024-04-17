@@ -50,6 +50,7 @@ except ImportError:
 
 from constants import *
 import path_planner as pp
+import path_planner_3D as pp3
 
 
 #########################
@@ -138,20 +139,25 @@ class Controller():
         #########################
 
         # generate trajectory
-        planner = pp.PathPlanner(self.initial_obs, initial_info)
-        planner.constructOccupancyGrid()
-        path = planner.runFMT()
-        planner.plotPath(path)
-
-        # initial waypoint
-        if use_firmware:
-            waypoints = [(self.initial_obs[0], self.initial_obs[2], initial_info["gate_dimensions"]["tall"]["height"])]  # Height is hardcoded scenario knowledge.
+        self.use_3d_path_planning = True
+        if self.use_3d_path_planning:
+            planner = pp3.PathPlanner3D(self.initial_obs, initial_info)
+            waypoints = planner.initialize_trajectory()
         else:
-            waypoints = [(self.initial_obs[0], self.initial_obs[2], self.initial_obs[4])]
+            planner = pp.PathPlanner(self.initial_obs, initial_info)
+            planner.constructOccupancyGrid()
+            path = planner.runFMT()
+            planner.plotPath(path)
 
-        for point in path:
-            waypoints.append((point[0], point[1], 1.0))
-        print(f'WAYPOINTS: {waypoints}')
+            # initial waypoint
+            if use_firmware:
+                waypoints = [(self.initial_obs[0], self.initial_obs[2], initial_info["gate_dimensions"]["tall"]["height"])]  # Height is hardcoded scenario knowledge.
+            else:
+                waypoints = [(self.initial_obs[0], self.initial_obs[2], self.initial_obs[4])]
+
+            for point in path:
+                waypoints.append(np.array([point[0], point[1], 1.0]))
+            print(f'WAYPOINTS: {waypoints}')
 
         self.waypoints = waypoints
         self.num_waypoints = len(waypoints)
@@ -231,7 +237,7 @@ class Controller():
             vel_norm = err_norm * WAYPOINT_TRACKING_SPEED_MAX
             vel_norm = min(vel_norm, WAYPOINT_TRACKING_SPEED_MAX)
             vel_norm = max(vel_norm, WAYPOINT_TRACKING_SPEED_MIN)
-            if DEBUG_WAYPOINT_TRACKING: print(vel_norm)
+            print(vel_norm)
             velocity = err_dir * vel_norm
             position = curr_pos + velocity * WAYPOINT_TRACKING_STEP_SIZE
             # [position, velocity, acceleration, yaw, rpy_rates]
