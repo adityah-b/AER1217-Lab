@@ -12,6 +12,7 @@ from scipy.spatial import KDTree
 from constants import *
 from matplotlib import pyplot as plt
 
+from shapely.geometry import Point, LineString, Polygon
 
 class Node:
     def __init__(
@@ -67,9 +68,6 @@ class PathPlanner:
         ###############################
         # Gate properties
         ###############################
-        # self.GATE_DIMS = initial_info['gate_dimensions']
-        # if DEBUG_PATH_PLANNING: print(f'GATE DIMS: {self.GATE_DIMS}')
-        # self.GATE_EDGE_LEN = (initial_info['gate_dimensions']['tall']['edge'] - 0.4) / 2.0
         self.GATE_INNER_EDGE_LEN = 0.4
         self.GATE_EDGE_LEN = 0.05
         self.GATE_EDGE_WID = 0.05
@@ -82,10 +80,8 @@ class PathPlanner:
         ###############################
         # Obstacle properties
         ###############################
-        # self.OBSTACLE_DIMS = initial_info['obstacle_dimensions']
-        # if DEBUG_PATH_PLANNING: print(f'OBSTACLE_DIMS: {self.OBSTACLE_DIMS}')
         self.OBSTACLE_RADIUS = 0.06
-        if DEBUG_PATH_PLANNING: print(f'OBSTACLE_RADIUS: {self.OBSTACLE_RADIUS}')
+        # if DEBUG_PATH_PLANNING: print(f'OBSTACLE_RADIUS: {self.OBSTACLE_RADIUS}')
 
         self.OBSTACLE_LOCATIONS = np.array([
             obs_loc[:3] for obs_loc in initial_info['nominal_obstacles_pos']
@@ -96,10 +92,10 @@ class PathPlanner:
         # Controller properties
         ###############################
         self.CTRL_TIMESTEP = initial_info["ctrl_timestep"]
-        if DEBUG_PATH_PLANNING: print(f'CTRL_TIMESTEP: {self.CTRL_TIMESTEP}')
+        # if DEBUG_PATH_PLANNING: print(f'CTRL_TIMESTEP: {self.CTRL_TIMESTEP}')
 
         self.CTRL_FREQ = initial_info["ctrl_freq"]
-        if DEBUG_PATH_PLANNING: print(f'CTRL_FREQ: {self.CTRL_FREQ}')
+        # if DEBUG_PATH_PLANNING: print(f'CTRL_FREQ: {self.CTRL_FREQ}')
 
         ####################
         # Robot properties
@@ -109,70 +105,34 @@ class PathPlanner:
         #################################
         # Planning algorithm properties
         #################################
-        # np.random.seed(42)
-        # self.fmt(
-        #     start_point=self.START_STATE[:2],
-        #     goal_point=self.GOAL_STATE[:2],
-        #     max_iters=1)
-
-        # start_points = [
-        #     self.START_STATE[:2],
-        #     self.GATE_LOCATIONS[0][:2],
-        #     self.GATE_LOCATIONS[1][:2],
-        #     self.GATE_LOCATIONS[2][:2],
-        #     self.GATE_LOCATIONS[3][:2]
-        # ]
-        # goal_points = [
-        #     self.GATE_LOCATIONS[0][:2],
-        #     self.GATE_LOCATIONS[1][:2],
-        #     self.GATE_LOCATIONS[2][:2],
-        #     self.GATE_LOCATIONS[3][:2],
-        #     self.GOAL_STATE[:2]
-        # ]
-
-        # if DEBUG_PATH_PLANNING: print(f'PATH: {path}')
-
-    # def runFMT(self):
-    #     start_points, goal_points = self.__setupInitialTraj()
-    #     path = []
-    #     for i in range(len(start_points)):
-    #         nodes = self.fmt(start_point=start_points[i], goal_point=goal_points[i])
-    #         sub_path = [nodes[-1].point]
-
-    #         path_end_idx = nodes[-1].parent
-    #         while path_end_idx > -1:
-    #             sub_path.append(nodes[path_end_idx].point)
-    #             path_end_idx = nodes[path_end_idx].parent
-    #         sub_path.reverse()
-    #         path += sub_path
-
-    #     return path
+        self.GATE_SHAPES, self.GATE_EDGE_CENTERS = self.__constructGateShapes()
+        print(f'GATE EDGE CENTERS SHAPE: {self.GATE_EDGE_CENTERS.shape}')
 
     def runFMT(
             self,
             num_points: int = 10000,
-            max_iters: int = 5000,
+            max_iters: int = 10000,
             rn: float = 0.25):
         start_points, goal_points = self.__setupInitialTraj()
         path = []
         sampled_points = np.array(self.__sampleNPoints(num_points=num_points))
         for i in range(len(start_points)):
-            start_point_grid = self.__pointsToGrid(start_points[i])
-            goal_point_grid = self.__pointsToGrid(goal_points[i])
-            if DEBUG_PATH_PLANNING: print(f'START GRID: {start_point_grid}')
-            if DEBUG_PATH_PLANNING: print(f'GOAL GRID: {goal_point_grid}')
+            start_point = start_points[i]
+            goal_point = goal_points[i]
+            if DEBUG_PATH_PLANNING: print(f'START POINT: {start_point}')
+            if DEBUG_PATH_PLANNING: print(f'GOAL POINT: {goal_point}')
 
             nodes = self.fmt(
                 sampled_points=sampled_points.copy(),
-                start_point=start_point_grid,
-                goal_point=goal_point_grid,
+                start_point=start_point,
+                goal_point=goal_point,
                 max_iters=max_iters,
                 rn=rn)
-            sub_path = [nodes[-1].point * self.GRID_RESOLUTION]
+            sub_path = [nodes[-1].point]
 
             path_end_idx = nodes[-1].parent
             while path_end_idx > -1:
-                sub_path.append(nodes[path_end_idx].point * self.GRID_RESOLUTION)
+                sub_path.append(nodes[path_end_idx].point)
                 path_end_idx = nodes[path_end_idx].parent
             sub_path.reverse()
             path += sub_path
@@ -183,6 +143,7 @@ class PathPlanner:
         fig, ax = plt.subplots()
         ax.set_xlim((-3.5, 3.5))
         ax.set_ylim((-3.5, 3.5))
+        markersize = 10
 
         x = list()
         y = list()
@@ -191,14 +152,45 @@ class PathPlanner:
             x.append(point[0])
             y.append(point[1])
         ax.plot(x, y, color='r', linewidth=1)
-        ax.scatter(x, y, color='b')
+        ax.scatter(x, y, color='b', s=markersize)
 
-        ax.scatter(path[0][0], path[0][1], color='g')
-        ax.scatter(path[-1][0], path[-1][1], color='g')
-        # ax.scatter(self.GATE_LOCATIONS[:, 0], self.GATE_LOCATIONS[:, 1], color='b')
+        ax.scatter(path[0][0], path[0][1], color='g', s=markersize)
+        ax.scatter(path[-1][0], path[-1][1], color='g', s=markersize)
 
-        if DEBUG_PATH_PLANNING: print(f'OCCUPANCY SHAPE: {self.OCCUPANCY_GRID_POINTS.shape}')
-        ax.scatter(self.OCCUPANCY_GRID_POINTS[:, 0] * self.GRID_RESOLUTION, self.OCCUPANCY_GRID_POINTS[:, 1] * self.GRID_RESOLUTION, color='r')
+        theta = np.linspace(0, 2 * np.pi, 100)  # Create an array of angular coordinates
+        for gate_key in self.GATE_SHAPES.keys():
+            rotated_gate_corners, (rotated_gate_edge_center_left, rotated_gate_edge_center_right) = self.GATE_SHAPES[gate_key]
+
+            gate_object = Polygon(rotated_gate_corners)
+            x,y = gate_object.exterior.xy
+            
+            ax.plot(x, y, color='g', linewidth=2)
+
+            x = rotated_gate_edge_center_left[0] + self.GATE_EDGE_LEN * np.cos(theta)  # X coordinates of circle
+            y = rotated_gate_edge_center_left[1] + self.GATE_EDGE_LEN * np.sin(theta)  # Y coordinates of circle
+            
+            ax.plot(x, y, color='r')  # Plot the circle
+            ax.scatter(rotated_gate_edge_center_left[0], rotated_gate_edge_center_left[1], color='r', s=markersize)
+
+            x = rotated_gate_edge_center_right[0] + self.GATE_EDGE_LEN * np.cos(theta)  # X coordinates of circle
+            y = rotated_gate_edge_center_right[1] + self.GATE_EDGE_LEN * np.sin(theta)  # Y coordinates of circle
+            
+            ax.plot(x, y, color='r')  # Plot the circle
+            ax.scatter(rotated_gate_edge_center_right[0], rotated_gate_edge_center_right[1], color='r', s=markersize)
+
+        for obstacle_center in self.OBSTACLE_LOCATIONS:
+            obstacle_center_2d = obstacle_center[:2]
+
+            x = obstacle_center_2d[0] + self.OBSTACLE_RADIUS * np.cos(theta)
+            y = obstacle_center_2d[1] + self.OBSTACLE_RADIUS * np.sin(theta)
+
+            ax.plot(x, y, color='r')
+
+        ax.scatter(self.GATE_LOCATIONS[:, 0], self.GATE_LOCATIONS[:, 1], color='b', s=markersize)
+        ax.scatter(self.OBSTACLE_LOCATIONS[:, 0], self.OBSTACLE_LOCATIONS[:, 1], color='r', s=markersize)
+
+        plt.gca().set_aspect('equal', adjustable='box')
+
         plt.show()
 
     def __addGoalStates(self, waypoint_tolerance: float = 0.2):
@@ -234,16 +226,16 @@ class PathPlanner:
         cur_point = start_point
         idx = 0
         for i in range(len(gate_goal_states)):
-            if DEBUG_PATH_PLANNING: print(f'CUR_POINT: {cur_point}')
+            # if DEBUG_PATH_PLANNING: print(f'CUR_POINT: {cur_point}')
             gate = self.GATE_LOCATIONS[i, :2].copy()
             gate_goals = gate_goal_states[i]
 
-            if DEBUG_PATH_PLANNING: print(f'GATE_GOALS: {gate_goals}')
+            # if DEBUG_PATH_PLANNING: print(f'GATE_GOALS: {gate_goals}')
 
             dists = np.linalg.norm(gate_goals - cur_point, axis=1)
-            if DEBUG_PATH_PLANNING: print(f'DISTS: {dists}')
+            # if DEBUG_PATH_PLANNING: print(f'DISTS: {dists}')
             closest_point = gate_goals[np.argmin(dists)]
-            if DEBUG_PATH_PLANNING: print(f'CLOSEST_POINT: {closest_point}')
+            # if DEBUG_PATH_PLANNING: print(f'CLOSEST_POINT: {closest_point}')
 
             start_states.append(cur_point)
             goal_states.append(closest_point)
@@ -256,195 +248,112 @@ class PathPlanner:
             start_states.append(gate)
             goal_states.append(cur_point)
 
-        if DEBUG_PATH_PLANNING: print(f'START_STATES SHAPE: {len(start_states)}')
-        if DEBUG_PATH_PLANNING: print(f'GOAL_STATES SHAPE: {len(goal_states)}')
+        # if DEBUG_PATH_PLANNING: print(f'START_STATES SHAPE: {len(start_states)}')
+        # if DEBUG_PATH_PLANNING: print(f'GOAL_STATES SHAPE: {len(goal_states)}')
         start_states.append(cur_point)
         goal_states.append(goal_point)
 
         return start_states, goal_states
 
-    # TODO: Add obstacles for gate edges
-    def constructOccupancyGrid(self, grid_resolution=0.005):
-        self.GRID_RESOLUTION = grid_resolution
+    def plotObstacles(self):
+        fig, ax = plt.subplots()
+        ax.set_xlim((-3.5, 3.5))
+        ax.set_ylim((-3.5, 3.5))
+        markersize = 10
 
-        # Get 2D x-y coordinates of obstacle positions
-        obstacle_points = self.OBSTACLE_LOCATIONS[:, :2]
-        if DEBUG_PATH_PLANNING: print(f'2D OBS POINTS: {obstacle_points}')
+        theta = np.linspace(0, 2 * np.pi, 100)  # Create an array of angular coordinates
+        for gate_key in self.GATE_SHAPES.keys():
+            rotated_gate_corners, (rotated_gate_edge_center_left, rotated_gate_edge_center_right) = self.GATE_SHAPES[gate_key]
 
-        # Get discretized grid points of filled obstacle regions
-        grid_obstacles = self.__fillGridObstacles(obstacle_points)
-        grid_gates = self.__fillGridGates(self.GATE_LOCATIONS)
+            gate_object = Polygon(rotated_gate_corners)
+            x,y = gate_object.exterior.xy
+            
+            ax.plot(x, y, color='g', linewidth=2)
 
-        self.OCCUPANCY_GRID_POINTS = np.vstack([grid_obstacles, grid_gates])
-        # self.OCCUPANCY_GRID_GATE_POINTS = grid_gates
+            x = rotated_gate_edge_center_left[0] + self.GATE_EDGE_LEN * np.cos(theta)  # X coordinates of circle
+            y = rotated_gate_edge_center_left[1] + self.GATE_EDGE_LEN * np.sin(theta)  # Y coordinates of circle
+            
+            ax.plot(x, y, color='r')  # Plot the circle
+            ax.scatter(rotated_gate_edge_center_left[0], rotated_gate_edge_center_left[1], color='r', s=markersize)
 
-        # Construct occupancy grid KD-Tree
-        self.OCCUPANCY_KD_TREE = KDTree(self.OCCUPANCY_GRID_POINTS)
+            x = rotated_gate_edge_center_right[0] + self.GATE_EDGE_LEN * np.cos(theta)  # X coordinates of circle
+            y = rotated_gate_edge_center_right[1] + self.GATE_EDGE_LEN * np.sin(theta)  # Y coordinates of circle
+            
+            ax.plot(x, y, color='r')  # Plot the circle
+            ax.scatter(rotated_gate_edge_center_right[0], rotated_gate_edge_center_right[1], color='r', s=markersize)
 
-        return grid_obstacles, grid_gates
+        for obstacle_center in self.OBSTACLE_LOCATIONS:
+            obstacle_center_2d = obstacle_center[:2]
 
-    #########################################################################################################
-    # Function: __fillGridObstacles(self, obstacle_points)
-    #
-    # Fill area bounded by circular obstacle with discretized points
-    #
-    # Inputs: obstacle_points
-    #   obstacle_points - N x 2 set of 2D Cartesian centroids of circular obstacles
-    #
-    # Outputs: discrete_obstacles_grid
-    #   discrete_obstacles_grid - N * M x 2 set of i, j indices representing locations of points in grid coordinates
-    #########################################################################################################
-    def __fillGridObstacles(self, obstacle_points):
-        # Fill in obstacle regions
-        discrete_obstacles_list = []
-        for obstacle_point in obstacle_points:
-            discrete_obstacles_list.append(self.__fillCircularObstacle(obstacle_point))
+            x = obstacle_center_2d[0] + self.OBSTACLE_RADIUS * np.cos(theta)
+            y = obstacle_center_2d[1] + self.OBSTACLE_RADIUS * np.sin(theta)
 
-        discrete_obstacles = np.vstack(discrete_obstacles_list, dtype=np.float32)
+            ax.plot(x, y, color='r')
 
-        # Transform obstacle points to corresponding grid coordinates
-        discrete_obstacles_grid = self.__pointsToGrid(discrete_obstacles)
+        ax.scatter(self.GATE_LOCATIONS[:, 0], self.GATE_LOCATIONS[:, 1], color='b', s=markersize)
+        ax.scatter(self.OBSTACLE_LOCATIONS[:, 0], self.OBSTACLE_LOCATIONS[:, 1], color='r', s=markersize)
 
-        return discrete_obstacles_grid
+        plt.gca().set_aspect('equal', adjustable='box')
+        plt.show()
 
-    #########################################################################################################
-    # Function: __fillGridGates(self, gate_poses)
-    #
-    # Fill area bounded by rectangular obstacle with discretized points
-    #
-    # Inputs: gate_poses
-    #   gate_poses - N x 4 set of 3D Cartesian coordinates and yaw of rectangular gates
-    #
-    # Outputs: discrete_gates_grid
-    #   discrete_gates_grid - N * M x 2 set of i, j indices representing locations of points in grid coordinates
-    #########################################################################################################
-    def __fillGridGates(self, gate_poses):
-        # Fill in gate edge regions
-        discrete_gates_list = []
-        for gate_pose in gate_poses:
-            discrete_gates_list.append(self.__fillRectangularObstacle(gate_pose))
+    def __constructGateShapes(self):
+        gate_shapes = {}
+        gate_edge_centers = []
 
-        discrete_gates = np.vstack(discrete_gates_list, dtype=np.float32)
+        for gate_pose in self.GATE_LOCATIONS:
+            # Get gate center and orientation
+            gate_center = gate_pose[:2]
+            gate_yaw = gate_pose[3]
+            # if DEBUG_PATH_PLANNING: print(f'GATE_YAW: {gate_yaw}')
 
-        # Transform obstacle points to corresponding grid coordinates
-        discrete_gates_grid = self.__pointsToGrid(discrete_gates)
+            # Construct full area of gate using 4 corners
+            gate_len = 2.0 * self.GATE_EDGE_LEN + self.GATE_INNER_EDGE_LEN
+            gate_width = self.GATE_EDGE_WID
 
-        return discrete_gates_grid
+            # Gate limits
+            gate_x_min = gate_center[0] - gate_len / 2.0
+            gate_x_max = gate_center[0] + gate_len / 2.0
+            gate_y_min = gate_center[1] - gate_width / 2.0
+            gate_y_max = gate_center[1] + gate_width / 2.0
+        
+            # Gate corners
+            gate_corners = np.array([
+                [gate_x_min, gate_y_min], # bottom-left
+                [gate_x_max, gate_y_min], # bottom-right
+                [gate_x_max, gate_y_max], # top-right
+                [gate_x_min, gate_y_max], # top-left
+            ], dtype=np.float32)
 
-    #########################################################################################################
-    # Function: __pointsToGrid(self, points)
-    #
-    # Convert set of [x, y] coordinates to their corresponding locations in the occupancy grid
-    #
-    # Inputs: points
-    #   points - N x 2 set of 2D Cartesian points
-    #
-    # Outputs: grid_points
-    #   grid_points - N x 2 set of i, j indices representing locations of points in grid
-    #########################################################################################################
-    def __pointsToGrid(self, points, grid_origin=[-3.5, -3.5]):
-        # Transform points from inertial frame to grid frame
-        # points -= np.array(grid_origin)
+            # Gate edge centers
+            gate_edge_center_left = [gate_x_min + self.GATE_EDGE_LEN / 2, gate_center[1]]
+            gate_edge_center_right = [gate_x_max - self.GATE_EDGE_LEN / 2, gate_center[1]]
 
-        # Subdivide transformed grid points based on cell resolution with grid origin corresponding to [0, 0]
-        grid_points = np.floor(points / self.GRID_RESOLUTION)
+            # if DEBUG_PATH_PLANNING: print(f'GATE EDGE CENTER LEFT: {gate_edge_center_left}')
+            # if DEBUG_PATH_PLANNING: print(f'GATE EDGE CENTER RIGHT: {gate_edge_center_right}')
+            # if DEBUG_PATH_PLANNING: print(f'GATE CORNERS: {gate_corners.shape}')
 
-        return grid_points
+            # Rotate gate corners based on orientation
+            rotated_gate_corners = np.array([
+                self.__rotatePoint(gate_corner, gate_center, gate_yaw) for gate_corner in gate_corners])
+            if DEBUG_PATH_PLANNING: print(f'ROTATED GATE CORNERS: {rotated_gate_corners}')
 
-    #########################################################################################################
-    # Function: __fillCircularObstacle(self, obstacle_center)
-    #
-    # Fills region enclosed by circular obstacle with points based on grid resolution
-    #
-    # Inputs: obstacle_center
-    #   obstacle_center - 1 x 2 array representing centroid of circular obstacle
-    #
-    # Outputs: circle_points
-    #   circle_points - N x 2 set of 2D Cartesian points representing all points within circle
-    #       N is determined by the diameter of the circle and the grid resolution
-    #########################################################################################################
-    def __fillCircularObstacle(self, obstacle_center):
-        x, y = np.meshgrid(
-            np.arange(obstacle_center[0] - self.OBSTACLE_RADIUS, obstacle_center[0] + self.OBSTACLE_RADIUS + self.GRID_RESOLUTION, self.GRID_RESOLUTION),
-            np.arange(obstacle_center[1] - self.OBSTACLE_RADIUS, obstacle_center[1] + self.OBSTACLE_RADIUS + self.GRID_RESOLUTION, self.GRID_RESOLUTION),
-        )
+            # Rotate gate edge centers based on orientation
+            rotated_gate_edge_center_left = self.__rotatePoint(gate_edge_center_left, gate_center, gate_yaw)
+            rotated_gate_edge_center_right = self.__rotatePoint(gate_edge_center_right, gate_center, gate_yaw)
+            if DEBUG_PATH_PLANNING: print(f'ROTATED GATE EDGE CENTER LEFT: {rotated_gate_edge_center_left}')
+            if DEBUG_PATH_PLANNING: print(f'ROTATED GATE EDGE CENTER RIGHT: {rotated_gate_edge_center_right}')
 
-        # Filter points belonging to circle
-        circle_eq = (x - obstacle_center[0]) ** 2 + (y - obstacle_center[1]) ** 2 <= self.OBSTACLE_RADIUS ** 2
-        x_circle = x[circle_eq]
-        y_circle = y[circle_eq]
-        circle_points = np.transpose(np.vstack((x_circle, y_circle)))
+            gate_shapes[tuple(gate_center)] = (rotated_gate_corners, (rotated_gate_edge_center_left, rotated_gate_edge_center_right))
 
-        return circle_points
+            gate_edge_centers.append([rotated_gate_edge_center_left, rotated_gate_edge_center_right])
+
+        return gate_shapes, np.vstack(gate_edge_centers, dtype=np.float32)
 
     def __rotatePoint(self, point, center, angle):
         s, c = np.sin(angle), np.cos(angle)
         x_rot = c * (point[0] - center[0]) - s * (point[1] - center[1]) + center[0]
         y_rot = s * (point[0] - center[0]) + c * (point[1] - center[1]) + center[1]
         return np.array([x_rot, y_rot])
-
-    #########################################################################################################
-    # Function: __fillRectangularObstacle(self, obstacle_center)
-    #
-    # Fills region enclosed by circular obstacle with points based on grid resolution
-    #
-    # Inputs: obstacle_center
-    #   obstacle_center - 1 x 2 array representing centroid of circular obstacle
-    #
-    # Outputs: circle_points
-    #   circle_points - N x 2 set of 2D Cartesian points representing all points within circle
-    #       N is determined by the diameter of the circle and the grid resolution
-    #########################################################################################################
-    def __fillRectangularObstacle(self, gate_pose):
-        gate_center = gate_pose[:2]
-        gate_yaw = gate_pose[3]
-        if DEBUG_PATH_PLANNING: print(f'GATE_YAW: {gate_yaw}')
-
-        gate_len = 2.0 * self.GATE_EDGE_LEN + self.GATE_INNER_EDGE_LEN
-        gate_width = self.GATE_EDGE_WID
-
-        gate_corners = np.array([
-            [gate_center[0] - gate_len / 2, gate_center[1] - gate_width / 2],
-            [gate_center[0] - gate_len / 2, gate_center[1] + gate_width / 2],
-            [gate_center[0] + gate_len / 2, gate_center[1] - gate_width / 2],
-            [gate_center[0] + gate_len / 2, gate_center[1] + gate_width / 2],
-        ], dtype=np.float32)
-
-        if DEBUG_PATH_PLANNING: print(f'GATE CORNERS: {gate_corners}')
-
-        rotated_corners = np.array([
-            self.__rotatePoint(gate_corner, gate_center, gate_yaw) for gate_corner in gate_corners])
-        if DEBUG_PATH_PLANNING: print(f'ROTATED GATE CORNERS: {rotated_corners}')
-
-        x_min = np.min(rotated_corners[:, 0])
-        x_max = np.max(rotated_corners[:, 0])
-
-        y_min = np.min(rotated_corners[:, 1])
-        y_max = np.max(rotated_corners[:, 1])
-
-        x_edge_low, y_edge_low = np.meshgrid(
-            np.arange(x_min, x_min + self.GATE_EDGE_LEN + self.GRID_RESOLUTION, self.GRID_RESOLUTION),
-            np.arange(y_min, y_min + self.GATE_EDGE_WID + self.GRID_RESOLUTION, self.GRID_RESOLUTION),
-        )
-
-        x_edge_hi, y_edge_hi = np.meshgrid(
-            np.arange(x_max - self.GATE_EDGE_LEN, x_max + self.GRID_RESOLUTION, self.GRID_RESOLUTION),
-            np.arange(y_max - self.GATE_EDGE_WID, y_max + self.GRID_RESOLUTION, self.GRID_RESOLUTION),
-        )
-
-        edge_points_low = np.transpose(np.vstack([x_edge_low.ravel(), y_edge_low.ravel()]))
-        edge_points_hi = np.transpose(np.vstack([x_edge_hi.ravel(), y_edge_hi.ravel()]))
-
-        # from matplotlib.path import Path
-        # path = Path(rotated_corners)
-
-        # grid_points_low = edge_points_low[path.contains_points(edge_points_low)]
-        # grid_points_hi = edge_points_hi[path.contains_points(edge_points_hi)]
-
-        # grid_points = np.vstack([grid_points_low, grid_points_hi])
-        grid_points = np.vstack([edge_points_low, edge_points_hi])
-
-        return grid_points
 
     #########################################################################################################
     # Function: __samplePoint(self, sample_goal: bool = False)
@@ -454,11 +363,11 @@ class PathPlanner:
     # Inputs: sample_goal (Optional)
     #   sample_goal - Bool to control whether to sample near the goal state
     #
-    # Outputs: sample_point_grid
-    #   sample_point_grid - 1 x 2 array representing sampled point in free space
+    # Outputs: sample_point
+    #   sample_point - 1 x 2 array representing sampled point in free space
     #########################################################################################################
     def __samplePoint(self, sample_goal: bool = False):
-        sample_point_grid = None
+        sample_point = None
         sample_in_free_space = False
         while not sample_in_free_space:
             x = np.random.uniform(self.X_BOUND[0], self.X_BOUND[1])
@@ -466,14 +375,11 @@ class PathPlanner:
 
             sample_point = np.array([x, y], dtype=np.float32)
 
-            # Transform sampled point to grid coordinates
-            sample_point_grid = self.__pointsToGrid(sample_point)
-
             # Check if point is in obstacle region
-            if not self.__isPointInObstacle(sample_point_grid):
+            if not self.__isPointInObstacle(sample_point):
                 sample_in_free_space = True
 
-        return sample_point_grid
+        return sample_point
 
     #########################################################################################################
     # Function: __sampleNPoints(self, start_point = None, goal_point = None, num_points: int = 5000)
@@ -504,77 +410,92 @@ class PathPlanner:
         return sampled_points
 
     #########################################################################################################
-    # Function: __isPointInObstacle(self, sample_point_grid)
+    # Function: __isPointInObstacle(self, sample_point)
     #
     # Checks whether a sampled point is inside an obstacle region
     #
-    # Inputs: sample_point_grid
-    #   sample_point_grid - 1 x 2 array representing the sampled point in grid coordinates
+    # Inputs: sample_point
+    #   sample_point - 1 x 2 array representing the sampled point
     #
     # Outputs: bool
     #   Returns true if point in obstacle region, else false
     #########################################################################################################
-    def __isPointInObstacle(self, sample_point_grid):
-        distance, _ = self.OCCUPANCY_KD_TREE.query(sample_point_grid)
-        return distance == 0
+    def __isPointInObstacle(self, sample_point):
+        # Check obstacles
+        obstacle_centers_2d = self.OBSTACLE_LOCATIONS[:, :2]
+        dists_to_obstacles = np.linalg.norm(sample_point - obstacle_centers_2d, axis=1)
+        if np.any(dists_to_obstacles <= self.OBSTACLE_RADIUS):
+            return True
+            
+        # Check gate edges
+        gate_edge_centers = self.GATE_EDGE_CENTERS
+        dists_to_gate_edges = np.linalg.norm(sample_point - gate_edge_centers, axis=1)
+        if np.any(dists_to_gate_edges <= self.GATE_EDGE_LEN):
+            return True
 
-    # def __findNearestNode(self, node):
-
-    # def rrtStar(self, max_iters: int = 5000):
-    #     for i in range(max_iters):
-    #         rand_node = self.__samplePoint()
-
-    #         nearest_node = self.findNearestNode(rand_node)
-    #         new_node = self.connectNodes(nearest_node, rand_node)
-
-    #         if self.checkCollision(nearest_node, new_node):
-    #             continue
-
-    #         neighbours = self.findNeighbours(new_node)
-    #         self.rewireParent(new_node)
-    #         self.rewire(new_node)
-
-
-    #     pass
+        return False
 
     def __checkCollision(self, nodeA, nodeB):
         if DEBUG_PATH_PLANNING: print(f'NODE A: {nodeA.point}')
         if DEBUG_PATH_PLANNING: print(f'NODE B: {nodeB.point}')
-        points = []
-        dx = abs(nodeB.point[0] - nodeA.point[0])
-        dy = abs(nodeB.point[1] - nodeA.point[1])
-        x, y = nodeA.point[0], nodeA.point[1]
-        sx = -1 if nodeA.point[0] > nodeB.point[0] else 1
-        sy = -1 if nodeA.point[1] > nodeB.point[1] else 1
-        if dx > dy:
-            err = dx / 2.0
-            while x != nodeB.point[0]:
-                points.append((x, y))
-                err -= dy
-                if err < 0:
-                    y += sy
-                    err += dx
-                x += sx
-        else:
-            err = dy / 2.0
-            while y != nodeB.point[1]:
-                points.append((x, y))
-                err -= dx
-                if err < 0:
-                    x += sx
-                    err += dy
-                y += sy
-        points.append((x, y))
+        
+        # Start to end point vector and magnitude
+        vec_a_to_b = (nodeB.point - nodeA.point).reshape(2, 1)
+        vec_a_to_b_mag = np.linalg.norm(vec_a_to_b)
+        vec_a_to_b_unit = vec_a_to_b / vec_a_to_b_mag
 
-        nn_dists, _ = self.OCCUPANCY_KD_TREE.query(points)
-        no_collision = bool(np.min(nn_dists) > (self.ROBOT_RADIUS / self.GRID_RESOLUTION))
+        # Obstacles
 
-        if no_collision:
-            if DEBUG_PATH_PLANNING: print(f'NO COLLISION')
-        else:
-            if DEBUG_PATH_PLANNING: print(f'COLLISION')
+        # Start to obstacle centers vector
+        obstacle_centers_2d = self.OBSTACLE_LOCATIONS[:, :2]
+        obstacle_centers_2d = obstacle_centers_2d.reshape(obstacle_centers_2d.shape[0], 2)
+        vec_a_to_obs = obstacle_centers_2d - nodeA.point
 
-        return no_collision
+        # Project obstacle centers to line
+        # proj_obs_scale = np.dot(vec_a_to_b, vec_a_to_obs)
+        proj_obs_scale = np.dot(vec_a_to_obs, vec_a_to_b)
+        proj_obs_scale = np.clip(proj_obs_scale, 0, vec_a_to_b_mag)
+        proj_obs_point = nodeA.point + np.outer(proj_obs_scale, vec_a_to_b_unit)
+
+        # Calculate distances of projected points and obstacle centers
+        dists_to_obstacle_centers = np.linalg.norm(proj_obs_point - obstacle_centers_2d, axis=1)
+        if np.any(dists_to_obstacle_centers <= self.OBSTACLE_RADIUS + self.ROBOT_RADIUS):
+            if DEBUG_PATH_PLANNING: print(f'OBSTACLE COLLISION')
+            return False
+
+        dist_start_to_obstacle_centers = np.linalg.norm(nodeA.point - obstacle_centers_2d, axis=1)
+        dist_end_to_obstacle_centers = np.linalg.norm(nodeB.point - obstacle_centers_2d, axis=1)
+
+        if np.any(dist_start_to_obstacle_centers <= self.OBSTACLE_RADIUS + self.ROBOT_RADIUS) or np.any(dist_end_to_obstacle_centers <= self.OBSTACLE_RADIUS + self.ROBOT_RADIUS):
+            if DEBUG_PATH_PLANNING: print(f'OBSTACLE START/END COLLISION')
+            return False
+
+        # Gate edges
+        # Start to gate edge centers vector
+        gate_edge_centers_2d = self.GATE_EDGE_CENTERS[:, :2]
+        gate_edge_centers_2d = gate_edge_centers_2d.reshape(gate_edge_centers_2d.shape[0], 2)
+        vec_a_to_gate_edges = gate_edge_centers_2d - nodeA.point
+
+        # Project gate edge centers to line
+        proj_gate_edge_scale = np.dot(vec_a_to_gate_edges, vec_a_to_b)
+        proj_gate_edge_scale = np.clip(proj_gate_edge_scale, 0, vec_a_to_b_mag)
+        proj_gate_edge_point = nodeA.point + np.outer(proj_gate_edge_scale, vec_a_to_b_unit)
+
+        # Calculate distances of projected points and gate edge centers
+        dists_to_gate_edge_centers = np.linalg.norm(proj_gate_edge_point - gate_edge_centers_2d, axis=1)
+        if np.any(dists_to_gate_edge_centers <= self.GATE_EDGE_LEN + self.ROBOT_RADIUS):
+            if DEBUG_PATH_PLANNING: print(f'GATE COLLISION')
+            return False
+
+        dist_start_to_gate_edge_centers = np.linalg.norm(nodeA.point - gate_edge_centers_2d, axis=1)
+        dist_end_to_gate_edge_centers = np.linalg.norm(nodeB.point - gate_edge_centers_2d, axis=1)
+
+        if np.any(dist_start_to_gate_edge_centers <= self.GATE_EDGE_LEN + self.ROBOT_RADIUS) or np.any(dist_end_to_gate_edge_centers <= self.GATE_EDGE_LEN + self.ROBOT_RADIUS):
+            if DEBUG_PATH_PLANNING: print(f'GATE START/END COLLISION')
+            return False
+        
+        if DEBUG_PATH_PLANNING: print(f'NO COLLISION')
+        return True
 
     def fmt(self,
             sampled_points,
@@ -605,10 +526,9 @@ class PathPlanner:
         z = nodes[z_idx]
         if DEBUG_PATH_PLANNING: print(f"Z START: {z.point}")
 
-        # while not np.all(z.point == goal_point_grid):
         for _ in range(max_iters):
             # Find all nodes within radius rn from z
-            N_z_indices = nn_kd_tree.query_ball_point(z.point, rn / self.GRID_RESOLUTION)
+            N_z_indices = nn_kd_tree.query_ball_point(z.point, rn)
             if DEBUG_PATH_PLANNING: print(f'Z NEIGHBOURS: {N_z_indices}')
 
             # Filter nodes only belonging to unvisited set
@@ -619,7 +539,7 @@ class PathPlanner:
 
             for x, x_idx in zip(X_near, X_near_indices):
                 # Find all nodes within radius rn from x
-                N_x_indices = nn_kd_tree.query_ball_point(x.point, rn / self.GRID_RESOLUTION)
+                N_x_indices = nn_kd_tree.query_ball_point(x.point, rn)
                 # if DEBUG_PATH_PLANNING: print(f'X NEIGHBOURS: {N_x_indices}')
 
                 # Filter nodes only belonging to open set
@@ -660,7 +580,8 @@ class PathPlanner:
             z_idx = V_open.top()
             z = nodes[z_idx]
 
-            if np.all(z.point == goal_point):
+            # if np.all(z.point == goal_point):
+            if np.linalg.norm(z.point - goal_point) <= 1e-5:
             # if z_idx == len(nodes) - 1:
                 if DEBUG_PATH_PLANNING: print(f'GOAL POINT FOUND')
                 path_found = True

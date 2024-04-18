@@ -145,7 +145,8 @@ class Controller():
 
         else:
             planner = pp.PathPlanner(self.initial_obs, initial_info)
-            planner.constructOccupancyGrid()
+            # planner.plotObstacles()
+            # exit()
             path = planner.runFMT()
             planner.plotPath(path)
 
