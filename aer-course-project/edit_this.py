@@ -40,18 +40,11 @@ except ImportError:
 # REPLACE THIS (START) ##
 #########################
 
-# Optionally, create and import modules you wrote.
-# Please refrain from importing large or unstable 3rd party packages.
-try:
-    import example_custom_utils as ecu
-except ImportError:
-    # PyTest import.
-    from . import example_custom_utils as ecu
-
 from constants import *
 import path_planner as pp
 import path_planner_3D as pp3
 
+gate_order = [0, 1, 2, 3]
 
 #########################
 # REPLACE THIS (END) ####
@@ -102,6 +95,11 @@ class Controller():
         # set start and end states
         self.start_state = np.array([initial_obs[0], initial_obs[2], initial_obs[4]])
         self.end_state   = np.array([initial_info['x_reference'][0], initial_info['x_reference'][2], LANDING_HEIGHT])
+
+        # update gate order
+        gate_info = initial_info['nominal_gates_pos_and_type']
+        gates = [gate_info[i] for i in gate_order]
+        initial_info['nominal_gates_pos_and_type'] = gates
 
         # Check for pycffirmware.
         if use_firmware:
