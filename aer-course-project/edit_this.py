@@ -101,7 +101,7 @@ class Controller():
 
         # set start and end states
         self.start_state = np.array([initial_obs[0], initial_obs[2], initial_obs[4]])
-        self.end_state   = np.array([initial_info['x_reference'][0], initial_info['x_reference'][2], initial_info['x_reference'][4]])
+        self.end_state   = np.array([initial_info['x_reference'][0], initial_info['x_reference'][2], LANDING_HEIGHT])
 
         # Check for pycffirmware.
         if use_firmware:
@@ -122,6 +122,7 @@ class Controller():
 
         self.curr_waypoint_idx = 0
         self.curr_waypoint = None
+        self.prev_waypoint = None
 
         ## visualization
         # # Plot trajectory in each dimension and 3D.
@@ -222,6 +223,7 @@ class Controller():
                 self.curr_waypoint_idx += 1
 
                 if self.curr_waypoint_idx < self.num_waypoints:
+                    self.prev_waypoint = self.curr_waypoint
                     self.curr_waypoint = self.waypoints[self.curr_waypoint_idx]
                 else:
                     self.flight_state = FLIGHT_STATE_LANDING
@@ -231,13 +233,15 @@ class Controller():
                     args = [height, duration]
 
             command_type = Command(1) # track
-            err_pos = (self.curr_waypoint - curr_pos)
-            err_norm = np.linalg.norm(err_pos)
-            err_dir = err_pos / err_norm
-            vel_norm = err_norm * WAYPOINT_TRACKING_SPEED_MAX
+            err_curr = self.curr_waypoint - curr_pos
+            err_prev = curr_pos - self.prev_waypoint
+            err_curr_norm = np.linalg.norm(err_curr)
+            err_prev_norm = np.linalg.norm(err_prev)
+            err_dir = err_curr / err_curr_norm
+            vel_norm =  err_prev_norm * err_curr_norm * WAYPOINT_TRACKING_SPEED_MAX
             vel_norm = min(vel_norm, WAYPOINT_TRACKING_SPEED_MAX)
             vel_norm = max(vel_norm, WAYPOINT_TRACKING_SPEED_MIN)
-            print(vel_norm)
+            if DEBUG_PATH_PLANNING: print(vel_norm)
             velocity = err_dir * vel_norm
             position = curr_pos + velocity * WAYPOINT_TRACKING_STEP_SIZE
             # [position, velocity, acceleration, yaw, rpy_rates]
@@ -246,6 +250,7 @@ class Controller():
         elif self.flight_state == FLIGHT_STATE_READY:
             # transition state
             self.flight_state = FLIGHT_STATE_TRACK
+            self.prev_waypoint = self.start_state
             self.curr_waypoint = self.waypoints[0]
 
         elif self.flight_state == FLIGHT_STATE_LANDING:
