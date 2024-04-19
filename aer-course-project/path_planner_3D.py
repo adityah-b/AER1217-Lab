@@ -1,6 +1,4 @@
-'''
-path planning implementation
-'''
+'''path planning implementation'''
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -28,7 +26,7 @@ class PathPlanner3D:
 
         # set start and end states
         self.start_state = np.array([initial_obs[0], initial_obs[2], initial_obs[4]])
-        self.end_state   = np.array([initial_info['x_reference'][0], initial_info['x_reference'][2], initial_info['x_reference'][4]])
+        self.end_state   = np.array([initial_info['x_reference'][0], initial_info['x_reference'][2], LANDING_HEIGHT])
 
         # add all obstacles
         for obstacle_position in initial_info['nominal_obstacles_pos']:
@@ -53,9 +51,15 @@ class PathPlanner3D:
         '''initialize trajectory by connecting the dots'''
 
         waypoints = []
+        # additional waypoints for smooth take-off (vertical)
         waypoints.append(self.start_state + np.array([0.0, 0.0, TAKE_OFF_HEIGHT]))
-        prev_point_1 = self.start_state
-        prev_point_2 = self.start_state
+        waypoints.append(self.start_state + np.array([0.0, 0.0, TAKE_OFF_HEIGHT * 2]))
+        waypoints.append(self.start_state + np.array([0.0, 0.0, TAKE_OFF_HEIGHT * 3]))
+        waypoints.append(self.start_state + np.array([0.0, 0.0, TAKE_OFF_HEIGHT * 4]))
+        waypoints.append(self.start_state + np.array([0.0, 0.0, 1.0]))
+
+        prev_point_1 = self.start_state + np.array([0.0, 0.0, 1.0])
+        prev_point_2 = self.start_state + np.array([0.0, 0.0, 1.0])
 
         for (x, y, theta) in self.gates:
             center = np.array([x, y, GATE_CENTER_HEIGHT])
@@ -69,16 +73,14 @@ class PathPlanner3D:
             else:
                 if np.linalg.norm(prev_point_1 - front) < np.linalg.norm(prev_point_1 - back):
                     waypoints.append(front)
-                    waypoints.append(center)
                     waypoints.append(back)
                     prev_point_1 = back
                 else:
                     waypoints.append(back)
-                    waypoints.append(center)
                     waypoints.append(front)
                     prev_point_1 = front
 
-        waypoints.append(self.end_state + np.array([0.0, 0.0, LANDING_HEIGHT]))
+        # waypoints.append(self.end_state + np.array([0.0, 0.0, LANDING_HEIGHT]))
         waypoints.append(self.end_state)
 
         self.initial_waypoints = waypoints
