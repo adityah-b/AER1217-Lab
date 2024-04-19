@@ -37,7 +37,8 @@ class PathPlanner:
             initial_info: dict,
             x_bound: list = [-3.5, 3.5],
             y_bound: list = [-3.5, 3.5],
-            robot_radius: float = 0.05) -> None:
+            robot_radius: float = 0.05,
+            safety_factor: float = 1.25) -> None:
 
         ###############################
         # Map boundaries
@@ -108,17 +109,27 @@ class PathPlanner:
         self.GATE_SHAPES, self.GATE_EDGE_CENTERS = self.__constructGateShapes()
         print(f'GATE EDGE CENTERS SHAPE: {self.GATE_EDGE_CENTERS.shape}')
 
+        self.SAFETY_FACTOR = safety_factor
+
     def runFMT(
             self,
-            num_points: int = 10000,
+            num_points: int = 5000,
             max_iters: int = 10000,
             rn: float = 0.25):
-        start_points, goal_points = self.__setupInitialTraj()
+        start_points, goal_points, gate_indices_dict = self.__setupInitialTraj()
         path = []
         sampled_points = np.array(self.__sampleNPoints(num_points=num_points))
         for i in range(len(start_points)):
             start_point = start_points[i]
             goal_point = goal_points[i]
+            active_gate_indices = []
+            
+            if tuple(start_point) in gate_indices_dict:
+                active_gate_indices.append(gate_indices_dict[tuple(start_point)])
+            
+            if tuple(goal_point) in gate_indices_dict:
+                active_gate_indices.append(gate_indices_dict[tuple(goal_point)])
+            
             if DEBUG_PATH_PLANNING: print(f'START POINT: {start_point}')
             if DEBUG_PATH_PLANNING: print(f'GOAL POINT: {goal_point}')
 
@@ -127,14 +138,40 @@ class PathPlanner:
                 start_point=start_point,
                 goal_point=goal_point,
                 max_iters=max_iters,
-                rn=rn)
-            sub_path = [nodes[-1].point]
+                rn=rn,
+                active_gate_indices=active_gate_indices)
 
+            # sub_path = [nodes[-1].point]
+
+            # path_end_idx = nodes[-1].parent
+            # while path_end_idx > -1:
+            #     sub_path.append(nodes[path_end_idx].point)
+            #     path_end_idx = nodes[path_end_idx].parent
+            # sub_path.reverse()
+            # path += sub_path
+
+            sub_path_nodes = [nodes[-1]]
             path_end_idx = nodes[-1].parent
             while path_end_idx > -1:
-                sub_path.append(nodes[path_end_idx].point)
+                sub_path_nodes.append(nodes[path_end_idx])
                 path_end_idx = nodes[path_end_idx].parent
-            sub_path.reverse()
+            sub_path_nodes.reverse()
+            sub_path = []
+
+            start_idx = 0
+            sub_path.append(sub_path_nodes[start_idx].point)
+
+            while start_idx < len(sub_path_nodes):
+                end_offset = 1
+                # Keep track of the last valid non-collision node index
+                last_valid = start_idx
+                while start_idx + end_offset < len(sub_path_nodes) and self.__checkCollision(sub_path_nodes[start_idx], sub_path_nodes[start_idx + end_offset], active_gate_indices):
+                    last_valid = start_idx + end_offset
+                    end_offset += 1
+                
+                sub_path.append(sub_path_nodes[last_valid].point)
+                # Move start index to the node after the last valid
+                start_idx = last_valid + 1 
             path += sub_path
 
         return path
@@ -157,7 +194,7 @@ class PathPlanner:
         ax.scatter(path[0][0], path[0][1], color='g', s=markersize)
         ax.scatter(path[-1][0], path[-1][1], color='g', s=markersize)
 
-        theta = np.linspace(0, 2 * np.pi, 100)  # Create an array of angular coordinates
+        theta = np.linspace(0, 2 * np.pi, 100)
         for gate_key in self.GATE_SHAPES.keys():
             rotated_gate_corners, (rotated_gate_edge_center_left, rotated_gate_edge_center_right) = self.GATE_SHAPES[gate_key]
 
@@ -166,16 +203,16 @@ class PathPlanner:
             
             ax.plot(x, y, color='g', linewidth=2)
 
-            x = rotated_gate_edge_center_left[0] + self.GATE_EDGE_LEN * np.cos(theta)  # X coordinates of circle
-            y = rotated_gate_edge_center_left[1] + self.GATE_EDGE_LEN * np.sin(theta)  # Y coordinates of circle
+            x = rotated_gate_edge_center_left[0] + self.GATE_EDGE_LEN * np.cos(theta)
+            y = rotated_gate_edge_center_left[1] + self.GATE_EDGE_LEN * np.sin(theta)
             
-            ax.plot(x, y, color='r')  # Plot the circle
+            ax.plot(x, y, color='r')
             ax.scatter(rotated_gate_edge_center_left[0], rotated_gate_edge_center_left[1], color='r', s=markersize)
 
-            x = rotated_gate_edge_center_right[0] + self.GATE_EDGE_LEN * np.cos(theta)  # X coordinates of circle
-            y = rotated_gate_edge_center_right[1] + self.GATE_EDGE_LEN * np.sin(theta)  # Y coordinates of circle
+            x = rotated_gate_edge_center_right[0] + self.GATE_EDGE_LEN * np.cos(theta)
+            y = rotated_gate_edge_center_right[1] + self.GATE_EDGE_LEN * np.sin(theta)
             
-            ax.plot(x, y, color='r')  # Plot the circle
+            ax.plot(x, y, color='r')
             ax.scatter(rotated_gate_edge_center_right[0], rotated_gate_edge_center_right[1], color='r', s=markersize)
 
         for obstacle_center in self.OBSTACLE_LOCATIONS:
@@ -213,7 +250,48 @@ class PathPlanner:
 
         return gate_goal_states
 
+    # def __setupInitialTraj(self):
+    #     gate_indices_dict = {}
+    #     gate_goal_states = self.__addGoalStates()
+    #     # if DEBUG_PATH_PLANNING: print(f'GATE GOAL STATES: {gate_goal_states}')
+
+    #     start_point = self.START_STATE[:2]
+    #     goal_point = self.GOAL_STATE[:2]
+
+    #     start_states = []
+    #     goal_states = []
+
+    #     cur_point = start_point
+    #     idx = 0
+    #     for i in range(len(gate_goal_states)):
+    #         # if DEBUG_PATH_PLANNING: print(f'CUR_POINT: {cur_point}')
+    #         gate = self.GATE_LOCATIONS[i, :2].copy()
+    #         gate_goals = gate_goal_states[i]
+
+    #         gate_indices_dict[tuple(gate_goals[0])] = i
+    #         gate_indices_dict[tuple(gate_goals[1])] = i
+
+    #         # if DEBUG_PATH_PLANNING: print(f'GATE_GOALS: {gate_goals}')
+
+    #         dists = np.linalg.norm(gate_goals - cur_point, axis=1)
+    #         # if DEBUG_PATH_PLANNING: print(f'DISTS: {dists}')
+    #         closest_point = gate_goals[np.argmin(dists)]
+    #         # if DEBUG_PATH_PLANNING: print(f'CLOSEST_POINT: {closest_point}')
+
+    #         start_states.append(cur_point)
+    #         goal_states.append(closest_point)
+
+    #         cur_point = gate_goals[np.argmax(dists)]
+
+    #     # if DEBUG_PATH_PLANNING: print(f'START_STATES SHAPE: {len(start_states)}')
+    #     # if DEBUG_PATH_PLANNING: print(f'GOAL_STATES SHAPE: {len(goal_states)}')
+    #     start_states.append(cur_point)
+    #     goal_states.append(goal_point)
+
+    #     return start_states, goal_states, gate_indices_dict
+
     def __setupInitialTraj(self):
+        gate_indices_dict = {}
         gate_goal_states = self.__addGoalStates()
         # if DEBUG_PATH_PLANNING: print(f'GATE GOAL STATES: {gate_goal_states}')
 
@@ -224,36 +302,59 @@ class PathPlanner:
         goal_states = []
 
         cur_point = start_point
-        idx = 0
+        closest_point = start_point
+        dists = None
+
+        prev_gate_idx = -1
         for i in range(len(gate_goal_states)):
             # if DEBUG_PATH_PLANNING: print(f'CUR_POINT: {cur_point}')
-            gate = self.GATE_LOCATIONS[i, :2].copy()
             gate_goals = gate_goal_states[i]
+
+            gate_indices_dict[tuple(gate_goals[0])] = i
+            gate_indices_dict[tuple(gate_goals[1])] = i
 
             # if DEBUG_PATH_PLANNING: print(f'GATE_GOALS: {gate_goals}')
 
-            dists = np.linalg.norm(gate_goals - cur_point, axis=1)
-            # if DEBUG_PATH_PLANNING: print(f'DISTS: {dists}')
+            if i > 0:
+                prev_gate_goals = gate_goal_states[prev_gate_idx]
+                dists_0 = np.linalg.norm(gate_goals - prev_gate_goals[0], axis=1)
+                dists_1 = np.linalg.norm(gate_goals - prev_gate_goals[1], axis=1)
+
+                min_dist_0 = np.min(dists_0)
+                min_dist_1 = np.min(dists_1)
+
+                if min_dist_0 < min_dist_1:
+                    new_cur_point = prev_gate_goals[0]
+                    if not np.all(cur_point == new_cur_point):
+                        start_states.append(cur_point)
+                        goal_states.append(new_cur_point)
+                    dists = dists_0
+                else:
+                    new_cur_point = prev_gate_goals[1]
+                    if not np.all(cur_point == new_cur_point):
+                        start_states.append(cur_point)
+                        goal_states.append(new_cur_point)
+                    cur_point = new_cur_point            
+                    dists = dists_1
+            else:
+                dists = np.linalg.norm(gate_goals - cur_point, axis=1)
+                # if DEBUG_PATH_PLANNING: print(f'DISTS: {dists}')
+                # if DEBUG_PATH_PLANNING: print(f'CLOSEST_POINT: {closest_point}')
             closest_point = gate_goals[np.argmin(dists)]
-            # if DEBUG_PATH_PLANNING: print(f'CLOSEST_POINT: {closest_point}')
 
             start_states.append(cur_point)
             goal_states.append(closest_point)
 
-            start_states.append(closest_point)
-            goal_states.append(gate)
-
             cur_point = gate_goals[np.argmax(dists)]
 
-            start_states.append(gate)
-            goal_states.append(cur_point)
+            prev_gate_idx = i
 
         # if DEBUG_PATH_PLANNING: print(f'START_STATES SHAPE: {len(start_states)}')
         # if DEBUG_PATH_PLANNING: print(f'GOAL_STATES SHAPE: {len(goal_states)}')
         start_states.append(cur_point)
         goal_states.append(goal_point)
 
-        return start_states, goal_states
+        return start_states, goal_states, gate_indices_dict
 
     def plotObstacles(self):
         fig, ax = plt.subplots()
@@ -261,7 +362,7 @@ class PathPlanner:
         ax.set_ylim((-3.5, 3.5))
         markersize = 10
 
-        theta = np.linspace(0, 2 * np.pi, 100)  # Create an array of angular coordinates
+        theta = np.linspace(0, 2 * np.pi, 100)
         for gate_key in self.GATE_SHAPES.keys():
             rotated_gate_corners, (rotated_gate_edge_center_left, rotated_gate_edge_center_right) = self.GATE_SHAPES[gate_key]
 
@@ -270,16 +371,16 @@ class PathPlanner:
             
             ax.plot(x, y, color='g', linewidth=2)
 
-            x = rotated_gate_edge_center_left[0] + self.GATE_EDGE_LEN * np.cos(theta)  # X coordinates of circle
-            y = rotated_gate_edge_center_left[1] + self.GATE_EDGE_LEN * np.sin(theta)  # Y coordinates of circle
+            x = rotated_gate_edge_center_left[0] + self.GATE_EDGE_LEN * np.cos(theta)
+            y = rotated_gate_edge_center_left[1] + self.GATE_EDGE_LEN * np.sin(theta)
             
-            ax.plot(x, y, color='r')  # Plot the circle
+            ax.plot(x, y, color='r')
             ax.scatter(rotated_gate_edge_center_left[0], rotated_gate_edge_center_left[1], color='r', s=markersize)
 
-            x = rotated_gate_edge_center_right[0] + self.GATE_EDGE_LEN * np.cos(theta)  # X coordinates of circle
-            y = rotated_gate_edge_center_right[1] + self.GATE_EDGE_LEN * np.sin(theta)  # Y coordinates of circle
+            x = rotated_gate_edge_center_right[0] + self.GATE_EDGE_LEN * np.cos(theta)
+            y = rotated_gate_edge_center_right[1] + self.GATE_EDGE_LEN * np.sin(theta)
             
-            ax.plot(x, y, color='r')  # Plot the circle
+            ax.plot(x, y, color='r')
             ax.scatter(rotated_gate_edge_center_right[0], rotated_gate_edge_center_right[1], color='r', s=markersize)
 
         for obstacle_center in self.OBSTACLE_LOCATIONS:
@@ -435,74 +536,101 @@ class PathPlanner:
 
         return False
 
-    def __checkCollision(self, nodeA, nodeB):
-        if DEBUG_PATH_PLANNING: print(f'NODE A: {nodeA.point}')
-        if DEBUG_PATH_PLANNING: print(f'NODE B: {nodeB.point}')
+    def __checkCollision(self, nodeA, nodeB, active_gate_indices):
+        if DEBUG_COLLISIONS: print(f'NODE A: {nodeA.point}')
+        if DEBUG_COLLISIONS: print(f'NODE B: {nodeB.point}')
         
         # Start to end point vector and magnitude
-        vec_a_to_b = (nodeB.point - nodeA.point).reshape(2, 1)
+        vec_a_to_b = nodeB.point - nodeA.point
         vec_a_to_b_mag = np.linalg.norm(vec_a_to_b)
         vec_a_to_b_unit = vec_a_to_b / vec_a_to_b_mag
 
+        if DEBUG_COLLISIONS: print(f'VEC_AB: {vec_a_to_b}')
+        if DEBUG_COLLISIONS: print(f'VEC_AB_MAG: {vec_a_to_b_mag}')
+        if DEBUG_COLLISIONS: print(f'VEC_AB_UNIT: {vec_a_to_b_unit}')
+
         # Obstacles
+        if DEBUG_COLLISIONS: print(f'----------------------OBSTACLES------------------------')
+        for obstacle_center in self.OBSTACLE_LOCATIONS:
+            # Start to obstacle center vector
+            obstacle_center_2d = obstacle_center[:2]
+            vec_a_to_obs = obstacle_center_2d - nodeA.point   
 
-        # Start to obstacle centers vector
-        obstacle_centers_2d = self.OBSTACLE_LOCATIONS[:, :2]
-        obstacle_centers_2d = obstacle_centers_2d.reshape(obstacle_centers_2d.shape[0], 2)
-        vec_a_to_obs = obstacle_centers_2d - nodeA.point
+            # Project obstacle center to line
+            proj_obs_scale = np.dot(vec_a_to_b_unit, vec_a_to_obs)
+            if proj_obs_scale >= 0 and proj_obs_scale <= vec_a_to_b_mag:
+                proj_obs_point = nodeA.point + vec_a_to_b_unit * proj_obs_scale
 
-        # Project obstacle centers to line
-        # proj_obs_scale = np.dot(vec_a_to_b, vec_a_to_obs)
-        proj_obs_scale = np.dot(vec_a_to_obs, vec_a_to_b)
-        proj_obs_scale = np.clip(proj_obs_scale, 0, vec_a_to_b_mag)
-        proj_obs_point = nodeA.point + np.outer(proj_obs_scale, vec_a_to_b_unit)
+                # Calculate distances of projected points and obstacle centers
+                dist_to_obs_center = np.linalg.norm(proj_obs_point - obstacle_center_2d)
+                if DEBUG_COLLISIONS: print(f'PROJECTED OBS POINT: {proj_obs_point}')
+                if DEBUG_COLLISIONS: print(f'OBS CENTER: {obstacle_center_2d}')
+                if DEBUG_COLLISIONS: print(f'DISTANCE: {dist_to_obs_center}')
 
-        # Calculate distances of projected points and obstacle centers
-        dists_to_obstacle_centers = np.linalg.norm(proj_obs_point - obstacle_centers_2d, axis=1)
-        if np.any(dists_to_obstacle_centers <= self.OBSTACLE_RADIUS + self.ROBOT_RADIUS):
-            if DEBUG_PATH_PLANNING: print(f'OBSTACLE COLLISION')
-            return False
+                if dist_to_obs_center <= (self.OBSTACLE_RADIUS + self.ROBOT_RADIUS) * self.SAFETY_FACTOR:
+                    if DEBUG_COLLISIONS: print(f'OBSTACLE COLLISION')
+                    return False
 
-        dist_start_to_obstacle_centers = np.linalg.norm(nodeA.point - obstacle_centers_2d, axis=1)
-        dist_end_to_obstacle_centers = np.linalg.norm(nodeB.point - obstacle_centers_2d, axis=1)
+            dist_start_to_obstacle_center = np.linalg.norm(obstacle_center_2d - nodeA.point)
+            dist_end_to_obstacle_center = np.linalg.norm(obstacle_center_2d - nodeB.point)
 
-        if np.any(dist_start_to_obstacle_centers <= self.OBSTACLE_RADIUS + self.ROBOT_RADIUS) or np.any(dist_end_to_obstacle_centers <= self.OBSTACLE_RADIUS + self.ROBOT_RADIUS):
-            if DEBUG_PATH_PLANNING: print(f'OBSTACLE START/END COLLISION')
-            return False
+            if dist_start_to_obstacle_center <= (self.OBSTACLE_RADIUS + self.ROBOT_RADIUS) * self.SAFETY_FACTOR or dist_end_to_obstacle_center <= (self.OBSTACLE_RADIUS + self.ROBOT_RADIUS) * self.SAFETY_FACTOR:
+                if DEBUG_COLLISIONS: print(f'OBSTACLE START/END COLLISION')
+                return False
+        if DEBUG_COLLISIONS: print(f'----------------------END OBSTACLES------------------------')
 
-        # Gate edges
-        # Start to gate edge centers vector
-        gate_edge_centers_2d = self.GATE_EDGE_CENTERS[:, :2]
-        gate_edge_centers_2d = gate_edge_centers_2d.reshape(gate_edge_centers_2d.shape[0], 2)
-        vec_a_to_gate_edges = gate_edge_centers_2d - nodeA.point
+        # Gates
+        if DEBUG_COLLISIONS: print(f'----------------------GATES------------------------')
+        for gate_edge_center in self.GATE_EDGE_CENTERS:
 
-        # Project gate edge centers to line
-        proj_gate_edge_scale = np.dot(vec_a_to_gate_edges, vec_a_to_b)
-        proj_gate_edge_scale = np.clip(proj_gate_edge_scale, 0, vec_a_to_b_mag)
-        proj_gate_edge_point = nodeA.point + np.outer(proj_gate_edge_scale, vec_a_to_b_unit)
+            # Start to gate edge centers vector
+            vec_a_to_gate_edge = gate_edge_center - nodeA.point
+            if DEBUG_COLLISIONS: print(f'VEC_A_EDGE: {vec_a_to_gate_edge}')
 
-        # Calculate distances of projected points and gate edge centers
-        dists_to_gate_edge_centers = np.linalg.norm(proj_gate_edge_point - gate_edge_centers_2d, axis=1)
-        if np.any(dists_to_gate_edge_centers <= self.GATE_EDGE_LEN + self.ROBOT_RADIUS):
-            if DEBUG_PATH_PLANNING: print(f'GATE COLLISION')
-            return False
+            # Project gate edge center to line
+            proj_gate_edge_scale = np.dot(vec_a_to_b_unit, vec_a_to_gate_edge)
+            if proj_gate_edge_scale >= 0 and proj_gate_edge_scale <= vec_a_to_b_mag:
+            # proj_gate_edge_scale = np.clip(proj_gate_edge_scale, 0, vec_a_to_b_mag)
+                proj_gate_edge_point = nodeA.point + vec_a_to_b_unit * proj_gate_edge_scale
 
-        dist_start_to_gate_edge_centers = np.linalg.norm(nodeA.point - gate_edge_centers_2d, axis=1)
-        dist_end_to_gate_edge_centers = np.linalg.norm(nodeB.point - gate_edge_centers_2d, axis=1)
+                # Calculate distances of projected points and gate edge centers
+                dist_to_gate_edge_center = np.linalg.norm(proj_gate_edge_point - gate_edge_center)
+                if DEBUG_COLLISIONS: print(f'PROJECTED GATE EDGE POINT: {proj_gate_edge_point}')
+                if DEBUG_COLLISIONS: print(f'GATE EDGE CENTER: {gate_edge_center}')
+                if DEBUG_COLLISIONS: print(f'DISTANCE: {dist_to_gate_edge_center}')
 
-        if np.any(dist_start_to_gate_edge_centers <= self.GATE_EDGE_LEN + self.ROBOT_RADIUS) or np.any(dist_end_to_gate_edge_centers <= self.GATE_EDGE_LEN + self.ROBOT_RADIUS):
-            if DEBUG_PATH_PLANNING: print(f'GATE START/END COLLISION')
-            return False
+                if dist_to_gate_edge_center <= (self.GATE_EDGE_LEN + self.ROBOT_RADIUS) * self.SAFETY_FACTOR:
+                    if DEBUG_COLLISIONS: print(f'GATE COLLISION')
+                    return False
+
+            dist_start_to_gate_edge_center = np.linalg.norm(gate_edge_center - nodeA.point)
+            dist_end_to_gate_edge_center = np.linalg.norm(gate_edge_center - nodeB.point)
+
+            if dist_start_to_gate_edge_center <= (self.GATE_EDGE_LEN + self.ROBOT_RADIUS) * self.SAFETY_FACTOR or dist_end_to_gate_edge_center <= (self.GATE_EDGE_LEN + self.ROBOT_RADIUS) * self.SAFETY_FACTOR:
+                if DEBUG_COLLISIONS: print(f'GATE START/END COLLISION')
+                return False
+        if DEBUG_COLLISIONS: print(f'----------------------END GATES------------------------')
         
-        if DEBUG_PATH_PLANNING: print(f'NO COLLISION')
-        return True
+        # Inactive gate collisions
+        for i in range(self.GATE_LOCATIONS.shape[0]):
+            if i not in active_gate_indices:
+                gate_center = tuple(self.GATE_LOCATIONS[i, :2])
+                gate_corners, _ = self.GATE_SHAPES[gate_center]
+                line = LineString([nodeA.point, nodeB.point])
+                if line.intersects(Polygon(gate_corners)):
+                    if DEBUG_COLLISIONS: print(f'INACTIVE GATE COLLISION')
+                    return False
 
+        if DEBUG_COLLISIONS: print(f'NO COLLISION')
+        return True
+    
     def fmt(self,
             sampled_points,
             start_point,
             goal_point,
             max_iters,
-            rn):
+            rn,
+            active_gate_indices):
 
         sampled_points[0] = start_point
         sampled_points[-1] = goal_point
@@ -511,7 +639,7 @@ class PathPlanner:
 
         nn_kd_tree = KDTree(sampled_points)
 
-        path_found = False
+        path_found = True
 
         V_open = pqdict({
             0 : nodes[0].cost
@@ -526,7 +654,7 @@ class PathPlanner:
         z = nodes[z_idx]
         if DEBUG_PATH_PLANNING: print(f"Z START: {z.point}")
 
-        for _ in range(max_iters):
+        while not np.linalg.norm(z.point - goal_point) <= 1e-5:
             # Find all nodes within radius rn from z
             N_z_indices = nn_kd_tree.query_ball_point(z.point, rn)
             if DEBUG_PATH_PLANNING: print(f'Z NEIGHBOURS: {N_z_indices}')
@@ -558,7 +686,7 @@ class PathPlanner:
                 if DEBUG_PATH_PLANNING: print(f'Y_MIN_COST: {y_min_cost}')
                 if DEBUG_PATH_PLANNING: print(f'Y_MIN_IDX: {y_min_idx}')
 
-                if self.__checkCollision(nodes[y_min_idx], nodes[x_idx]):
+                if self.__checkCollision(nodes[y_min_idx], nodes[x_idx], active_gate_indices):
                     nodes[y_min_idx].children.append(x)
                     nodes[x_idx].parent = y_min_idx
                     nodes[x_idx].cost = y_min_cost
@@ -575,20 +703,14 @@ class PathPlanner:
 
             if len(V_open) == 0:
                 if DEBUG_PATH_PLANNING: print(f'OUT OF NODES')
+                path_found = False
                 break
 
             z_idx = V_open.top()
             z = nodes[z_idx]
 
-            # if np.all(z.point == goal_point):
-            if np.linalg.norm(z.point - goal_point) <= 1e-5:
-            # if z_idx == len(nodes) - 1:
-                if DEBUG_PATH_PLANNING: print(f'GOAL POINT FOUND')
-                path_found = True
-                break
-
         if path_found:
-            if DEBUG_PATH_PLANNING: print(f'PATH FOUND')
+            if DEBUG_PATH_PLANNING: print(f'GOAL POINT FOUND')
         else:
             if DEBUG_PATH_PLANNING: print(f'NO PATH FOUND FAIL')
 
