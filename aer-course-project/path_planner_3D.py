@@ -26,7 +26,7 @@ class PathPlanner3D:
 
         # set start and end states
         self.start_state = np.array([initial_obs[0], initial_obs[2], initial_obs[4]])
-        self.end_state   = np.array([initial_info['x_reference'][0], initial_info['x_reference'][2], LANDING_HEIGHT])
+        self.end_state   = np.array([initial_info['x_reference'][0], initial_info['x_reference'][2], 0.0])
 
         # add all obstacles
         for obstacle_position in initial_info['nominal_obstacles_pos']:
@@ -80,12 +80,21 @@ class PathPlanner3D:
                     waypoints.append(front)
                     prev_point_1 = front
 
-        # waypoints.append(self.end_state + np.array([0.0, 0.0, LANDING_HEIGHT]))
-        waypoints.append(self.end_state)
+        # vertical landing
+        waypoints.append(self.end_state + np.array([0.0, 0.0, 1.0]))
+        waypoints.append(self.end_state + np.array([0.0, 0.0, LANDING_HEIGHT]))
 
         self.initial_waypoints = waypoints
         return waypoints
 
 
     def plan_trajectory(self):
+        pass
+
+
+    def plot_trajectory(self):
+        pass
+
+
+    def plot_potential_feild(self):
         pass
