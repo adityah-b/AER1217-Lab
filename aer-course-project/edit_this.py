@@ -161,6 +161,7 @@ class Controller():
 
         self.waypoints = waypoints
         self.num_waypoints = len(waypoints)
+        self.curr_pos = self.start_state
 
         self.flight_state = FLIGHT_STATE_READY
 
@@ -214,12 +215,14 @@ class Controller():
         args = []
 
         # get current position
-        curr_pos = np.array([obs[0], obs[2], obs[4]])
+        prev_pos = self.curr_pos
+        self.curr_pos = np.array([obs[0], obs[2], obs[4]])
+        curr_speed = np.linalg.norm(self.curr_pos - prev_pos) * self.CTRL_FREQ
 
         # state machine
         if self.flight_state == FLIGHT_STATE_TRACK and USE_SMOOTH_TRAJECTORY:
-            err = self.curr_waypoint - curr_pos
-            err_len = np.linalg.norm(curr_pos - self.curr_waypoint)
+            err = self.curr_waypoint - self.curr_pos
+            err_len = np.linalg.norm(self.curr_pos - self.curr_waypoint)
             if err_len < WAYPOINT_TRACKING_THRES:
                 self.curr_waypoint_idx += 1
 
@@ -234,16 +237,18 @@ class Controller():
                     args = [height, duration]
                     return command_type, args
 
-            velocity = self.speed * err / err_len
-            position = self.curr_waypoint
+            dir = err / err_len
+            velocity = self.speed * dir
+            # position = self.curr_waypoint
+            position = self.curr_pos + dir * WAYPOINT_TRACKING_STEP_SIZE
 
             command_type = Command(1) # track
-            if DEBUG_WAYPOINT_TRACKING: print(self.speed)
+            if DEBUG_WAYPOINT_TRACKING: print(f"target_speed = {self.speed}; curr_speed = {curr_speed}")
             # [position, velocity, acceleration, yaw, rpy_rates]
             args = [position, velocity, np.zeros(3), 0, np.zeros(3)]
 
         elif self.flight_state == FLIGHT_STATE_TRACK:
-            err = np.linalg.norm(curr_pos - self.curr_waypoint)
+            err = np.linalg.norm(self.curr_pos - self.curr_waypoint)
             if err < WAYPOINT_TRACKING_THRES:
                 self.curr_waypoint_idx += 1
 
@@ -259,17 +264,17 @@ class Controller():
                     return command_type, args
 
             command_type = Command(1) # track
-            err_curr = self.curr_waypoint - curr_pos
-            err_prev = curr_pos - self.prev_waypoint
+            err_curr = self.curr_waypoint - self.curr_pos
+            err_prev = self.curr_pos - self.prev_waypoint
             err_curr_norm = np.linalg.norm(err_curr)
             err_prev_norm = np.linalg.norm(err_prev)
             err_dir = err_curr / err_curr_norm
             vel_norm =  err_prev_norm * err_curr_norm * WAYPOINT_TRACKING_SPEED_MAX
             vel_norm = min(vel_norm, WAYPOINT_TRACKING_SPEED_MAX)
             vel_norm = max(vel_norm, WAYPOINT_TRACKING_SPEED_MIN)
-            if DEBUG_WAYPOINT_TRACKING: print(vel_norm)
+            if DEBUG_WAYPOINT_TRACKING: print(f"target_speed = {vel_norm}; curr_speed = {curr_speed}")
             velocity = err_dir * vel_norm
-            position = curr_pos + velocity * WAYPOINT_TRACKING_STEP_SIZE
+            position = self.curr_pos + velocity * WAYPOINT_TRACKING_STEP_SIZE
             # [position, velocity, acceleration, yaw, rpy_rates]
             args = [position, velocity, np.zeros(3), 0, np.zeros(3)]
 
@@ -287,7 +292,7 @@ class Controller():
             self.curr_waypoint = self.waypoints[0]
 
         elif self.flight_state == FLIGHT_STATE_LANDING:
-            if np.linalg.norm(curr_pos - self.end_state) < WAYPOINT_TRACKING_THRES:
+            if np.linalg.norm(self.curr_pos - self.end_state) < WAYPOINT_TRACKING_THRES:
                 self.flight_state = FLIGHT_STATE_OFF
                 command_type = Command(4)  # STOP
                 args = []
