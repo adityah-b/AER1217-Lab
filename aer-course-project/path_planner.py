@@ -188,7 +188,7 @@ class PathPlanner:
         for point in path:
             x.append(point[0])
             y.append(point[1])
-        ax.plot(x, y, color='r', linewidth=1)
+        ax.plot(x, y, color='C1', linewidth=1)
         ax.scatter(x, y, color='b', s=markersize)
 
         ax.scatter(path[0][0], path[0][1], color='g', s=markersize)
@@ -209,11 +209,20 @@ class PathPlanner:
             ax.plot(x, y, color='r')
             ax.scatter(rotated_gate_edge_center_left[0], rotated_gate_edge_center_left[1], color='r', s=markersize)
 
+            x = rotated_gate_edge_center_left[0] + GATE_EDGE_CLEARANCE * np.cos(theta)
+            y = rotated_gate_edge_center_left[1] + GATE_EDGE_CLEARANCE * np.sin(theta)
+            ax.plot(x, y, color='r', linestyle='dashed', linewidth=1)
+
             x = rotated_gate_edge_center_right[0] + self.GATE_EDGE_LEN * np.cos(theta)
             y = rotated_gate_edge_center_right[1] + self.GATE_EDGE_LEN * np.sin(theta)
             
-            ax.plot(x, y, color='r')
+            ax.plot(x, y, color='r', linewidth=1)
             ax.scatter(rotated_gate_edge_center_right[0], rotated_gate_edge_center_right[1], color='r', s=markersize)
+
+            x = rotated_gate_edge_center_right[0] + GATE_EDGE_CLEARANCE * np.cos(theta)
+            y = rotated_gate_edge_center_right[1] + GATE_EDGE_CLEARANCE * np.sin(theta)
+            
+            ax.plot(x, y, color='r', linestyle='dashed', linewidth=1)
 
         for obstacle_center in self.OBSTACLE_LOCATIONS:
             obstacle_center_2d = obstacle_center[:2]
@@ -221,7 +230,12 @@ class PathPlanner:
             x = obstacle_center_2d[0] + self.OBSTACLE_RADIUS * np.cos(theta)
             y = obstacle_center_2d[1] + self.OBSTACLE_RADIUS * np.sin(theta)
 
-            ax.plot(x, y, color='r')
+            ax.plot(x, y, color='r', linewidth=1)
+
+            x = obstacle_center_2d[0] + OBSTACLE_CLEARANCE * np.cos(theta)
+            y = obstacle_center_2d[1] + OBSTACLE_CLEARANCE * np.sin(theta)
+
+            ax.plot(x, y, color='r', linestyle='dashed', linewidth=1)
 
         ax.scatter(self.GATE_LOCATIONS[:, 0], self.GATE_LOCATIONS[:, 1], color='b', s=markersize)
         ax.scatter(self.OBSTACLE_LOCATIONS[:, 0], self.OBSTACLE_LOCATIONS[:, 1], color='r', s=markersize)
@@ -328,6 +342,7 @@ class PathPlanner:
                     if not np.all(cur_point == new_cur_point):
                         start_states.append(cur_point)
                         goal_states.append(new_cur_point)
+                    cur_point = new_cur_point
                     dists = dists_0
                 else:
                     new_cur_point = prev_gate_goals[1]
@@ -567,14 +582,14 @@ class PathPlanner:
                 if DEBUG_COLLISIONS: print(f'OBS CENTER: {obstacle_center_2d}')
                 if DEBUG_COLLISIONS: print(f'DISTANCE: {dist_to_obs_center}')
 
-                if dist_to_obs_center <= (self.OBSTACLE_RADIUS + self.ROBOT_RADIUS) * self.SAFETY_FACTOR:
+                if dist_to_obs_center <= (OBSTACLE_CLEARANCE) * self.SAFETY_FACTOR:
                     if DEBUG_COLLISIONS: print(f'OBSTACLE COLLISION')
                     return False
 
             dist_start_to_obstacle_center = np.linalg.norm(obstacle_center_2d - nodeA.point)
             dist_end_to_obstacle_center = np.linalg.norm(obstacle_center_2d - nodeB.point)
 
-            if dist_start_to_obstacle_center <= (self.OBSTACLE_RADIUS + self.ROBOT_RADIUS) * self.SAFETY_FACTOR or dist_end_to_obstacle_center <= (self.OBSTACLE_RADIUS + self.ROBOT_RADIUS) * self.SAFETY_FACTOR:
+            if dist_start_to_obstacle_center <= (OBSTACLE_CLEARANCE) * self.SAFETY_FACTOR or dist_end_to_obstacle_center <= (OBSTACLE_CLEARANCE) * self.SAFETY_FACTOR:
                 if DEBUG_COLLISIONS: print(f'OBSTACLE START/END COLLISION')
                 return False
         if DEBUG_COLLISIONS: print(f'----------------------END OBSTACLES------------------------')
@@ -599,14 +614,14 @@ class PathPlanner:
                 if DEBUG_COLLISIONS: print(f'GATE EDGE CENTER: {gate_edge_center}')
                 if DEBUG_COLLISIONS: print(f'DISTANCE: {dist_to_gate_edge_center}')
 
-                if dist_to_gate_edge_center <= (self.GATE_EDGE_LEN + self.ROBOT_RADIUS) * self.SAFETY_FACTOR:
+                if dist_to_gate_edge_center <= (GATE_EDGE_CLEARANCE) * self.SAFETY_FACTOR:
                     if DEBUG_COLLISIONS: print(f'GATE COLLISION')
                     return False
 
             dist_start_to_gate_edge_center = np.linalg.norm(gate_edge_center - nodeA.point)
             dist_end_to_gate_edge_center = np.linalg.norm(gate_edge_center - nodeB.point)
 
-            if dist_start_to_gate_edge_center <= (self.GATE_EDGE_LEN + self.ROBOT_RADIUS) * self.SAFETY_FACTOR or dist_end_to_gate_edge_center <= (self.GATE_EDGE_LEN + self.ROBOT_RADIUS) * self.SAFETY_FACTOR:
+            if dist_start_to_gate_edge_center <= (GATE_EDGE_CLEARANCE) * self.SAFETY_FACTOR or dist_end_to_gate_edge_center <= (GATE_EDGE_CLEARANCE) * self.SAFETY_FACTOR:
                 if DEBUG_COLLISIONS: print(f'GATE START/END COLLISION')
                 return False
         if DEBUG_COLLISIONS: print(f'----------------------END GATES------------------------')
