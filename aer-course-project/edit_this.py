@@ -42,7 +42,7 @@ except ImportError:
 
 from constants import *
 import path_planner as pp
-import path_planner_3D as pp3
+import path_planner_potential as ppp
 
 gate_order = [0, 1, 2, 3]
 
@@ -138,10 +138,11 @@ class Controller():
         #########################
 
         # generate trajectory
-        self.use_3d_path_planning = True
-        if self.use_3d_path_planning:
-            planner = pp3.PathPlanner3D(self.initial_obs, initial_info)
-            waypoints = planner.initialize_trajectory()
+        if USE_SMOOTH_TRAJECTORY:
+            planner = ppp.PathPlannerPotential(self.initial_obs, initial_info)
+            waypoints, speeds = planner.plan_trajectory()
+            self.speeds = speeds
+
         else:
             planner = pp.PathPlanner(self.initial_obs, initial_info)
             planner.constructOccupancyGrid()
@@ -160,6 +161,7 @@ class Controller():
 
         self.waypoints = waypoints
         self.num_waypoints = len(waypoints)
+
         self.flight_state = FLIGHT_STATE_READY
 
         #########################
@@ -215,7 +217,32 @@ class Controller():
         curr_pos = np.array([obs[0], obs[2], obs[4]])
 
         # state machine
-        if self.flight_state == FLIGHT_STATE_TRACK:
+        if self.flight_state == FLIGHT_STATE_TRACK and USE_SMOOTH_TRAJECTORY:
+            err = self.curr_waypoint - curr_pos
+            err_len = np.linalg.norm(curr_pos - self.curr_waypoint)
+            if err_len < WAYPOINT_TRACKING_THRES:
+                self.curr_waypoint_idx += 1
+
+                if self.curr_waypoint_idx < self.num_waypoints:
+                    self.curr_waypoint = self.waypoints[self.curr_waypoint_idx]
+                    self.speed = self.speeds[self.curr_waypoint_idx]
+                else:
+                    self.flight_state = FLIGHT_STATE_LANDING
+                    command_type = Command(3) # Land
+                    height = 0.0
+                    duration = 1.0
+                    args = [height, duration]
+                    return command_type, args
+
+            velocity = self.speed * err / err_len
+            position = self.curr_waypoint
+
+            command_type = Command(1) # track
+            if DEBUG_WAYPOINT_TRACKING: print(self.speed)
+            # [position, velocity, acceleration, yaw, rpy_rates]
+            args = [position, velocity, np.zeros(3), 0, np.zeros(3)]
+
+        elif self.flight_state == FLIGHT_STATE_TRACK:
             err = np.linalg.norm(curr_pos - self.curr_waypoint)
             if err < WAYPOINT_TRACKING_THRES:
                 self.curr_waypoint_idx += 1
@@ -229,6 +256,7 @@ class Controller():
                     height = 0.0
                     duration = 1.0
                     args = [height, duration]
+                    return command_type, args
 
             command_type = Command(1) # track
             err_curr = self.curr_waypoint - curr_pos
@@ -239,11 +267,18 @@ class Controller():
             vel_norm =  err_prev_norm * err_curr_norm * WAYPOINT_TRACKING_SPEED_MAX
             vel_norm = min(vel_norm, WAYPOINT_TRACKING_SPEED_MAX)
             vel_norm = max(vel_norm, WAYPOINT_TRACKING_SPEED_MIN)
-            if DEBUG_PATH_PLANNING: print(vel_norm)
+            if DEBUG_WAYPOINT_TRACKING: print(vel_norm)
             velocity = err_dir * vel_norm
             position = curr_pos + velocity * WAYPOINT_TRACKING_STEP_SIZE
             # [position, velocity, acceleration, yaw, rpy_rates]
             args = [position, velocity, np.zeros(3), 0, np.zeros(3)]
+
+        elif self.flight_state == FLIGHT_STATE_READY and USE_SMOOTH_TRAJECTORY:
+            # transition state
+            self.flight_state = FLIGHT_STATE_TRACK
+            self.prev_waypoint = self.start_state
+            self.curr_waypoint = self.waypoints[0]
+            self.speed = self.speeds[0]
 
         elif self.flight_state == FLIGHT_STATE_READY:
             # transition state
@@ -258,67 +293,6 @@ class Controller():
                 args = []
 
         return command_type, args
-
-
-
-        if iteration == 0:
-            height = 1
-            duration = 2
-
-            command_type = Command(2)  # Take-off.
-            args = [height, duration]
-
-        # [INSTRUCTIONS] Example code for using cmdFullState interface
-        elif iteration >= 3*self.CTRL_FREQ and iteration < 20*self.CTRL_FREQ:
-            step = min(iteration-3*self.CTRL_FREQ, len(self.ref_x) -1)
-            target_pos = np.array([self.ref_x[step], self.ref_y[step], self.ref_z[step]])
-            target_vel = np.zeros(3)
-            target_acc = np.zeros(3)
-            target_yaw = 0.
-            target_rpy_rates = np.zeros(3)
-
-            command_type = Command(1)  # cmdFullState.
-            args = [target_pos, target_vel, target_acc, target_yaw, target_rpy_rates]
-
-        elif iteration == 20*self.CTRL_FREQ:
-            command_type = Command(6)  # Notify setpoint stop.
-            args = []
-
-       # [INSTRUCTIONS] Example code for using goTo interface
-        elif iteration == 20*self.CTRL_FREQ+1:
-            x = self.ref_x[-1]
-            y = self.ref_y[-1]
-            z = 1.5
-            yaw = 0.
-            duration = 2.5
-
-            command_type = Command(5)  # goTo.
-            args = [[x, y, z], yaw, duration, False]
-
-        elif iteration == 23*self.CTRL_FREQ:
-            x = self.initial_obs[0]
-            y = self.initial_obs[2]
-            z = 1.5
-            yaw = 0.
-            duration = 6
-
-            command_type = Command(5)  # goTo.
-            args = [[x, y, z], yaw, duration, False]
-
-        elif iteration == 30*self.CTRL_FREQ:
-            height = 0.
-            duration = 3
-
-            command_type = Command(3)  # Land.
-            args = [height, duration]
-
-        elif iteration == 33*self.CTRL_FREQ-1:
-            command_type = Command(4)  # STOP command to be sent once the trajectory is completed.
-            args = []
-
-        else:
-            command_type = Command(0)  # None.
-            args = []
 
         #########################
         # REPLACE THIS (END) ####
