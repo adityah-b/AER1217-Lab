@@ -243,7 +243,7 @@ class Controller():
             position = self.curr_pos + dir * WAYPOINT_TRACKING_STEP_SIZE
 
             command_type = Command(1) # track
-            if DEBUG_WAYPOINT_TRACKING: print(f"target_speed = {self.speed}; curr_speed = {curr_speed}")
+            if DEBUG_WAYPOINT_TRACKING: print(f"target_speed = {self.speed:.3}; curr_speed = {curr_speed:.3}")
             # [position, velocity, acceleration, yaw, rpy_rates]
             args = [position, velocity, np.zeros(3), 0, np.zeros(3)]
 
