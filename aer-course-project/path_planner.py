@@ -148,7 +148,7 @@ class PathPlanner:
             self,
             num_points: int = 5000,
             max_iters: int = 10000,
-            rn: float = 0.3):
+            rn: float = 0.4):
         start_points, goal_points, gate_indices_dict = self.__setupInitialTraj()
         path = []
         sampled_points = np.array(self.__sampleNPoints(num_points=num_points))
@@ -277,7 +277,7 @@ class PathPlanner:
 
         plt.show()
 
-    def __addGoalStates(self, waypoint_tolerance: float = 0.15):
+    def __addGoalStates(self, waypoint_tolerance: float = 0.2):
         gate_locations = self.GATE_LOCATIONS
 
         gate_goal_states = []
