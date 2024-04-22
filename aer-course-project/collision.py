@@ -32,7 +32,10 @@ class Obstacle:
     def compute_cost(self, position):
         diff = np.array([position[0] - self.center[0], position[1] - self.center[1]])
         dist = np.linalg.norm(diff)
-        cost = np.exp(-dist / self.radius)
+        if USE_LINEAR_COLLISION_LOSS:
+            cost = max(1 - dist / self.radius, 0.0)
+        else:
+            cost = np.exp(-dist / self.radius)
         return cost
 
 
@@ -57,22 +60,25 @@ class Gate:
         return False
 
 
-    # def compute_cost(self, position):
-    #     '''circular version'''
-    #     diff = np.array([position[0] - self.center[0], position[1] - self.center[1]])
-    #     dist = np.linalg.norm(diff)
-    #     cost = np.exp(-dist / self.radius)
-    #     return cost
-
-
     def compute_cost(self, position):
-        '''ellipital version'''
-        x_scale = self.minor_radius * np.sin(self.phi) + self.radius * np.cos(self.phi)
-        y_scale = self.minor_radius * np.cos(self.phi) + self.radius * np.sin(self.phi)
-        diff = np.array([(position[0] - self.center[0]) / x_scale, (position[1] - self.center[1]) / y_scale])
+        '''circular version'''
+        diff = np.array([position[0] - self.center[0], position[1] - self.center[1]])
         dist = np.linalg.norm(diff)
-        cost = np.exp(-dist)
+        if USE_LINEAR_COLLISION_LOSS:
+            cost = max(1 - dist / self.radius, 0.0)
+        else:
+            cost = np.exp(-dist / self.radius)
         return cost
+
+
+    # def compute_cost(self, position):
+    #     '''ellipital version'''
+    #     x_scale = self.minor_radius * np.sin(self.phi) + self.radius * np.cos(self.phi)
+    #     y_scale = self.minor_radius * np.cos(self.phi) + self.radius * np.sin(self.phi)
+    #     diff = np.array([(position[0] - self.center[0]) / x_scale, (position[1] - self.center[1]) / y_scale])
+    #     dist = np.linalg.norm(diff)
+    #     cost = np.exp(-dist)
+    #     return cost
 
 
     # def render(self, figure, ax):

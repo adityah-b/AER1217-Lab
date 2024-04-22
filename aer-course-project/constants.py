@@ -47,6 +47,7 @@ FLIGHT_STATE_OFF = 8
 # path planning (potential field)
 USE_SMOOTH_TRAJECTORY = True
 USE_BIDIRECTIONAL_EXIT = True
+USE_LINEAR_COLLISION_LOSS = True
 
 SUB_SAMPLE_DISTANCE = 0.2
 NUM_SUB_SAMPLE = 5 # driven by sample distance)
