@@ -157,7 +157,10 @@ class Controller():
 
             for point in path:
                 waypoints.append(np.array([point[0], point[1], 1.0]))
-            print(f'WAYPOINTS: {waypoints}')
+            if DEBUG_PATH_PLANNING: print(f'WAYPOINTS: {waypoints}')
+
+            # add end state
+            waypoints.append(self.end_state)
 
         self.waypoints = waypoints
         self.num_waypoints = len(waypoints)
