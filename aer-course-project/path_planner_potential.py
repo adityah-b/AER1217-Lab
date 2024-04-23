@@ -70,15 +70,15 @@ class PathPlannerPotential:
 
         # waypoints for smooth take-off (vertical)
         self.final_waypoints.append(self.start_state + np.array([0.0, 0.0, TAKE_OFF_HEIGHT]))
-        self.speeds.append(0.0)
+        self.speeds.append(SMOOTH_TRACKING_SPEED_MIN)
         self.final_waypoints.append(self.start_state + np.array([0.0, 0.0, TAKE_OFF_HEIGHT * 2]))
-        self.speeds.append(0.0)
+        self.speeds.append(SMOOTH_TRACKING_SPEED_MIN)
         self.final_waypoints.append(self.start_state + np.array([0.0, 0.0, TAKE_OFF_HEIGHT * 3]))
-        self.speeds.append(0.0)
+        self.speeds.append(SMOOTH_TRACKING_SPEED_MIN)
         self.final_waypoints.append(self.start_state + np.array([0.0, 0.0, TAKE_OFF_HEIGHT * 4]))
-        self.speeds.append(0.0)
+        self.speeds.append(SMOOTH_TRACKING_SPEED_MIN)
         self.final_waypoints.append(self.start_state + np.array([0.0, 0.0, 1.0]))
-        self.speeds.append(0.0)
+        self.speeds.append(SMOOTH_TRACKING_SPEED_MIN)
 
         prev_entry_point = self.start_state + np.array([0.0, 0.0, 1.0])
         prev_exit_point  = self.start_state + np.array([0.0, 0.0, 1.0])
@@ -120,9 +120,9 @@ class PathPlannerPotential:
 
         # vertical landing
         self.final_waypoints.append(self.end_state + np.array([0.0, 0.0, 1.0]))
-        self.speeds.append(0.0)
+        self.speeds.append(SMOOTH_TRACKING_SPEED_MIN)
         self.final_waypoints.append(self.end_state + np.array([0.0, 0.0, LANDING_HEIGHT]))
-        self.speeds.append(0.0)
+        self.speeds.append(SMOOTH_TRACKING_SPEED_MIN)
 
         # plot final trajectory
         if POT_PLOT_FINAL_TRAJECTORY: self.plot_trajectory()
@@ -134,15 +134,15 @@ class PathPlannerPotential:
 
         # waypoints for smooth take-off (vertical)
         self.final_waypoints.append(self.start_state + np.array([0.0, 0.0, TAKE_OFF_HEIGHT]))
-        self.speeds.append(0.0)
+        self.speeds.append(SMOOTH_TRACKING_SPEED_MIN)
         self.final_waypoints.append(self.start_state + np.array([0.0, 0.0, TAKE_OFF_HEIGHT * 2]))
-        self.speeds.append(0.0)
+        self.speeds.append(SMOOTH_TRACKING_SPEED_MIN)
         self.final_waypoints.append(self.start_state + np.array([0.0, 0.0, TAKE_OFF_HEIGHT * 3]))
-        self.speeds.append(0.0)
+        self.speeds.append(SMOOTH_TRACKING_SPEED_MIN)
         self.final_waypoints.append(self.start_state + np.array([0.0, 0.0, TAKE_OFF_HEIGHT * 4]))
-        self.speeds.append(0.0)
+        self.speeds.append(SMOOTH_TRACKING_SPEED_MIN)
         # self.final_waypoints.append(self.start_state + np.array([0.0, 0.0, 1.0]))
-        # self.speeds.append(0.0)
+        # self.speeds.append(SMOOTH_TRACKING_SPEED_MIN)
 
         prev_front_point = self.start_state + np.array([0.0, 0.0, 1.0])
         prev_back_point  = self.start_state + np.array([0.0, 0.0, 1.0])
@@ -195,7 +195,7 @@ class PathPlannerPotential:
 
             # add the opposite point if entry and exit is the same
             if prev_exit_point_key == prev_entry_point_key:
-                self.speeds.append(SMOOTH_TRACKING_SPEED_MIN)
+                self.speeds.append(SMOOTH_TRACKING_SPEED_MID)
                 if prev_exit_point_key == "front":
                     self.final_waypoints.append(prev_back_point)
                 if prev_exit_point_key == "back":
@@ -250,7 +250,7 @@ class PathPlannerPotential:
             prev_exit_point = prev_back_point
 
         if prev_exit_point_key == prev_entry_point_key:
-            self.speeds.append(SMOOTH_TRACKING_SPEED_MIN)
+            self.speeds.append(SMOOTH_TRACKING_SPEED_MID)
             if prev_exit_point_key == "front":
                 self.final_waypoints.append(prev_back_point)
             else:
@@ -264,9 +264,9 @@ class PathPlannerPotential:
 
         # vertical landing
         self.final_waypoints.append(self.end_state + np.array([0.0, 0.0, 1.0]))
-        self.speeds.append(0.0)
+        self.speeds.append(SMOOTH_TRACKING_SPEED_MIN)
         self.final_waypoints.append(self.end_state + np.array([0.0, 0.0, LANDING_HEIGHT]))
-        self.speeds.append(0.0)
+        self.speeds.append(SMOOTH_TRACKING_SPEED_MIN)
 
         # plot final trajectory
         if POT_PLOT_FINAL_TRAJECTORY: self.plot_trajectory()
