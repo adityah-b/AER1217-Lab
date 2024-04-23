@@ -195,7 +195,7 @@ class PathPlannerPotential:
 
             # add the opposite point if entry and exit is the same
             if prev_exit_point_key == prev_entry_point_key:
-                self.speeds.append(WAYPOINT_TRACKING_SPEED_MIN)
+                self.speeds.append(SMOOTH_TRACKING_SPEED_MIN)
                 if prev_exit_point_key == "front":
                     self.final_waypoints.append(prev_back_point)
                 if prev_exit_point_key == "back":
