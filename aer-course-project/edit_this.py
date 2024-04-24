@@ -143,9 +143,14 @@ class Controller():
             waypoints, speeds = planner.plan_trajectory()
             self.speeds = speeds
 
+        elif USE_FMT_SMOOTH_TRAJECTORY:
+            planner = pp.PathPlanner(self.initial_obs, initial_info)
+            path = planner.runFMT()
+            waypoints, speeds = planner.initTrajectory(path)
+            planner.plotPath(waypoints, speeds)
+            self.speeds = speeds
         else:
             planner = pp.PathPlanner(self.initial_obs, initial_info)
-            # planner.plotObstacles()
             path = planner.runFMT()
             planner.plotPath(path)
 
@@ -250,6 +255,31 @@ class Controller():
             # [position, velocity, acceleration, yaw, rpy_rates]
             args = [position, velocity, np.zeros(3), 0, np.zeros(3)]
 
+        elif self.flight_state == FLIGHT_STATE_TRACK and USE_FMT_SMOOTH_TRAJECTORY:
+            err = self.curr_waypoint - self.curr_pos
+            err_len = np.linalg.norm(self.curr_pos - self.curr_waypoint)
+            if err_len < WAYPOINT_TRACKING_THRES:
+                self.curr_waypoint_idx += 1
+
+                if self.curr_waypoint_idx < self.num_waypoints:
+                    self.curr_waypoint = self.waypoints[self.curr_waypoint_idx]
+                    self.speed = self.speeds[self.curr_waypoint_idx]
+                else:
+                    self.flight_state = FLIGHT_STATE_LANDING
+                    command_type = Command(3) # Land
+                    height = 0.0
+                    duration = 1.0
+                    args = [height, duration]
+                    return command_type, args
+
+            dir = err / err_len
+            velocity = self.speed * dir
+            position = self.curr_pos + dir * WAYPOINT_TRACKING_STEP_SIZE
+
+            command_type = Command(1) # track
+            if DEBUG_WAYPOINT_TRACKING: print(f"target_speed = {self.speed:.3}; curr_speed = {curr_speed:.3}")
+            args = [position, velocity, np.zeros(3), 0, np.zeros(3)]
+
         elif self.flight_state == FLIGHT_STATE_TRACK:
             err = np.linalg.norm(self.curr_pos - self.curr_waypoint)
             if err < WAYPOINT_TRACKING_THRES:
@@ -281,7 +311,7 @@ class Controller():
             # [position, velocity, acceleration, yaw, rpy_rates]
             args = [position, velocity, np.zeros(3), 0, np.zeros(3)]
 
-        elif self.flight_state == FLIGHT_STATE_READY and USE_SMOOTH_TRAJECTORY:
+        elif self.flight_state == FLIGHT_STATE_READY and (USE_SMOOTH_TRAJECTORY or USE_FMT_SMOOTH_TRAJECTORY):
             # transition state
             self.flight_state = FLIGHT_STATE_TRACK
             self.prev_waypoint = self.start_state
