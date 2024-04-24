@@ -174,8 +174,9 @@ class PathPlanner:
             goal_point = goal_points[i]
             active_gate_indices = []
 
-            if tuple(start_point) in gate_indices_dict:
-                active_gate_indices.append(gate_indices_dict[tuple(start_point)])
+            if USE_FMT_BIDIRECTIONAL_EXIT:
+                if tuple(start_point) in gate_indices_dict:
+                    active_gate_indices.append(gate_indices_dict[tuple(start_point)])
 
             if tuple(goal_point) in gate_indices_dict:
                 active_gate_indices.append(gate_indices_dict[tuple(goal_point)])
@@ -185,58 +186,59 @@ class PathPlanner:
 
             if len(active_gate_indices) > 1 and active_gate_indices[0] == active_gate_indices[1]:
                 path += [start_point, goal_point]
-            else:
-                nodes = self.fmt(
-                    sampled_points=sampled_points.copy(),
-                    start_point=start_point,
-                    goal_point=goal_point,
-                    max_iters=max_iters,
-                    rn=rn,
-                    active_gate_indices=active_gate_indices)
+                continue
 
-                if filter_nodes:
-                    if USE_FMT_SLIDING_WINDOW:
-                        sub_path_nodes = [nodes[-1]]
-                        path_end_idx = nodes[-1].parent
-                        while path_end_idx > -1:
-                            sub_path_nodes.append(nodes[path_end_idx])
-                            path_end_idx = nodes[path_end_idx].parent
-                        sub_path_nodes.reverse()
-                        sub_path = []
+            nodes = self.fmt(
+                sampled_points=sampled_points.copy(),
+                start_point=start_point,
+                goal_point=goal_point,
+                max_iters=max_iters,
+                rn=rn,
+                active_gate_indices=active_gate_indices)
 
-                        start_idx = 0
-                        sub_path.append(sub_path_nodes[start_idx].point)
+            if filter_nodes:
+                if USE_FMT_SLIDING_WINDOW:
+                    sub_path_nodes = [nodes[-1]]
+                    path_end_idx = nodes[-1].parent
+                    while path_end_idx > -1:
+                        sub_path_nodes.append(nodes[path_end_idx])
+                        path_end_idx = nodes[path_end_idx].parent
+                    sub_path_nodes.reverse()
+                    sub_path = []
 
-                        while start_idx < len(sub_path_nodes) - 1:
-                            end_offset = 1
-                            # Keep track of the last valid non-collision node index
-                            last_valid = start_idx
-                            while start_idx + end_offset < len(sub_path_nodes) and self.__checkCollision(sub_path_nodes[start_idx], sub_path_nodes[start_idx + end_offset], active_gate_indices) and np.linalg.norm(sub_path_nodes[start_idx].point - sub_path_nodes[start_idx + end_offset].point) <= 1.5:
-                                last_valid = start_idx + end_offset
-                                end_offset += 1
+                    start_idx = 0
+                    sub_path.append(sub_path_nodes[start_idx].point)
 
-                            sub_path.append(sub_path_nodes[last_valid].point)
-                            # Move start index to the node after the last valid
-                            start_idx = last_valid
-                        path += sub_path
+                    while start_idx < len(sub_path_nodes) - 1:
+                        end_offset = 1
+                        # Keep track of the last valid non-collision node index
+                        last_valid = start_idx
+                        while start_idx + end_offset < len(sub_path_nodes) and self.__checkCollision(sub_path_nodes[start_idx], sub_path_nodes[start_idx + end_offset], active_gate_indices) and np.linalg.norm(sub_path_nodes[start_idx].point - sub_path_nodes[start_idx + end_offset].point) <= 1.5:
+                            last_valid = start_idx + end_offset
+                            end_offset += 1
 
-                    elif USE_FMT_SMOOTH_TRAJECTORY:
-                        sub_path = [nodes[-1].point]
-                        path_end_idx = nodes[-1].parent
-                        while path_end_idx > -1:
-                            sub_path.append(nodes[path_end_idx].point)
-                            path_end_idx = nodes[path_end_idx].parent
+                        sub_path.append(sub_path_nodes[last_valid].point)
+                        # Move start index to the node after the last valid
+                        start_idx = last_valid
+                    path += sub_path
 
-                        sub_path.reverse()
-                        path += self.filterPath(sub_path, start_point, goal_point)
-                else:
+                elif USE_FMT_SMOOTH_TRAJECTORY:
                     sub_path = [nodes[-1].point]
                     path_end_idx = nodes[-1].parent
                     while path_end_idx > -1:
                         sub_path.append(nodes[path_end_idx].point)
                         path_end_idx = nodes[path_end_idx].parent
+
                     sub_path.reverse()
-                    path += sub_path
+                    path += self.filterPath(sub_path, start_point, goal_point)
+            else:
+                sub_path = [nodes[-1].point]
+                path_end_idx = nodes[-1].parent
+                while path_end_idx > -1:
+                    sub_path.append(nodes[path_end_idx].point)
+                    path_end_idx = nodes[path_end_idx].parent
+                sub_path.reverse()
+                path += sub_path
         return path
 
     def computeSpeeds(self, waypoints, lookahead_distance=10):
@@ -337,8 +339,9 @@ class PathPlanner:
             # Locally resample and run fmt
             active_gate_indices = []
 
-            if tuple(filtered_path[i-1]) in self.gate_indices_dict:
-                active_gate_indices.append(self.gate_indices_dict[tuple(filtered_path[i-1])])
+            if USE_FMT_BIDIRECTIONAL_EXIT:
+                if tuple(filtered_path[i-1]) in self.gate_indices_dict:
+                    active_gate_indices.append(self.gate_indices_dict[tuple(filtered_path[i-1])])
 
             if tuple(filtered_path[i]) in self.gate_indices_dict:
                 active_gate_indices.append(self.gate_indices_dict[tuple(filtered_path[i])])
@@ -490,47 +493,53 @@ class PathPlanner:
 
         return gate_goal_states
 
-    # def __setupInitialTraj(self):
-    #     gate_indices_dict = {}
-    #     gate_goal_states = self.__addGoalStates()
-    #     # if DEBUG_PATH_PLANNING: print(f'GATE GOAL STATES: {gate_goal_states}')
-
-    #     start_point = self.START_STATE[:2]
-    #     goal_point = self.GOAL_STATE[:2]
-
-    #     start_states = []
-    #     goal_states = []
-
-    #     cur_point = start_point
-    #     idx = 0
-    #     for i in range(len(gate_goal_states)):
-    #         # if DEBUG_PATH_PLANNING: print(f'CUR_POINT: {cur_point}')
-    #         gate = self.GATE_LOCATIONS[i, :2].copy()
-    #         gate_goals = gate_goal_states[i]
-
-    #         gate_indices_dict[tuple(gate_goals[0])] = i
-    #         gate_indices_dict[tuple(gate_goals[1])] = i
-
-    #         # if DEBUG_PATH_PLANNING: print(f'GATE_GOALS: {gate_goals}')
-
-    #         dists = np.linalg.norm(gate_goals - cur_point, axis=1)
-    #         # if DEBUG_PATH_PLANNING: print(f'DISTS: {dists}')
-    #         closest_point = gate_goals[np.argmin(dists)]
-    #         # if DEBUG_PATH_PLANNING: print(f'CLOSEST_POINT: {closest_point}')
-
-    #         start_states.append(cur_point)
-    #         goal_states.append(closest_point)
-
-    #         cur_point = gate_goals[np.argmax(dists)]
-
-    #     # if DEBUG_PATH_PLANNING: print(f'START_STATES SHAPE: {len(start_states)}')
-    #     # if DEBUG_PATH_PLANNING: print(f'GOAL_STATES SHAPE: {len(goal_states)}')
-    #     start_states.append(cur_point)
-    #     goal_states.append(goal_point)
-
-    #     return start_states, goal_states, gate_indices_dict
-
     def __setupInitialTraj(self):
+        if USE_FMT_BIDIRECTIONAL_EXIT:
+            return self.__setupInitialTrajBidirectional()
+        else:
+            return self.__setupInitialTrajUnidirectional()
+
+    def __setupInitialTrajUnidirectional(self):
+        gate_indices_dict = {}
+        gate_goal_states = self.__addGoalStates()
+        # if DEBUG_PATH_PLANNING: print(f'GATE GOAL STATES: {gate_goal_states}')
+
+        start_point = self.START_STATE[:2]
+        goal_point = self.GOAL_STATE[:2]
+
+        start_states = []
+        goal_states = []
+
+        cur_point = start_point
+        idx = 0
+        for i in range(len(gate_goal_states)):
+            # if DEBUG_PATH_PLANNING: print(f'CUR_POINT: {cur_point}')
+            gate = self.GATE_LOCATIONS[i, :2].copy()
+            gate_goals = gate_goal_states[i]
+
+            gate_indices_dict[tuple(gate_goals[0])] = i
+            gate_indices_dict[tuple(gate_goals[1])] = i
+
+            # if DEBUG_PATH_PLANNING: print(f'GATE_GOALS: {gate_goals}')
+
+            dists = np.linalg.norm(gate_goals - cur_point, axis=1)
+            # if DEBUG_PATH_PLANNING: print(f'DISTS: {dists}')
+            closest_point = gate_goals[np.argmin(dists)]
+            # if DEBUG_PATH_PLANNING: print(f'CLOSEST_POINT: {closest_point}')
+
+            start_states.append(cur_point)
+            goal_states.append(closest_point)
+
+            cur_point = gate_goals[np.argmax(dists)]
+
+        # if DEBUG_PATH_PLANNING: print(f'START_STATES SHAPE: {len(start_states)}')
+        # if DEBUG_PATH_PLANNING: print(f'GOAL_STATES SHAPE: {len(goal_states)}')
+        start_states.append(cur_point)
+        goal_states.append(goal_point)
+
+        return start_states, goal_states, gate_indices_dict
+
+    def __setupInitialTrajBidirectional(self):
         gate_indices_dict = {}
         gate_goal_states = self.__addGoalStates()
         # if DEBUG_PATH_PLANNING: print(f'GATE GOAL STATES: {gate_goal_states}')
