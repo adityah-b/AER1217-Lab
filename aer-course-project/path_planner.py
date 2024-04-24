@@ -211,7 +211,7 @@ class PathPlanner:
                             end_offset = 1
                             # Keep track of the last valid non-collision node index
                             last_valid = start_idx
-                            while start_idx + end_offset < len(sub_path_nodes) and self.__checkCollision(sub_path_nodes[start_idx], sub_path_nodes[start_idx + end_offset], active_gate_indices):
+                            while start_idx + end_offset < len(sub_path_nodes) and self.__checkCollision(sub_path_nodes[start_idx], sub_path_nodes[start_idx + end_offset], active_gate_indices) and np.linalg.norm(sub_path_nodes[start_idx].point - sub_path_nodes[start_idx + end_offset].point) <= 1.5:
                                 last_valid = start_idx + end_offset
                                 end_offset += 1
 
@@ -303,7 +303,7 @@ class PathPlanner:
 
         return final_waypoints, speeds
 
-    def filterPath(self, path, start_point, goal_point, waypoint_spacing = 0.2):
+    def filterPath(self, path, start_point, goal_point, waypoint_spacing = 0.3):
         intermediate_path = []
         for i in range(1, len(path) - 1):
             intermediate_path.append(path[i])
@@ -362,7 +362,7 @@ class PathPlanner:
 
                 mid_point = tmp_start_point + vec_goal_start_unit * (vec_goal_start_mag / 2)
                 intermediate_path = self.runFMT(
-                    num_points=5000,
+                    num_points=2500,
                     start_points=[tmp_start_point],
                     goal_points=[tmp_goal_point],
                     filter_nodes=False,

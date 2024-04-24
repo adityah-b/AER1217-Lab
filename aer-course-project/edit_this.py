@@ -44,7 +44,7 @@ from constants import *
 import path_planner as pp
 import path_planner_potential as ppp
 
-gate_order = [0, 1, 2, 3]
+gate_order = [3, 0, 2, 1]
 
 #########################
 # REPLACE THIS (END) ####
