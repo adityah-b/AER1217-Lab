@@ -81,29 +81,8 @@ class Gate:
     #     return cost
 
 
-    # def render(self, figure, ax):
-    #     '''circular version'''
-    #     sin_phi = np.sin(self.phi)
-    #     cos_phi = np.cos(self.phi)
-
-    #     rim_offset  = (GATE_OPENING_SIZE + GATE_RIM_WIDTH) / 2
-    #     rim_radius  = GATE_RIM_WIDTH
-
-    #     # find vertices
-    #     center_l = np.array([self.center[0] - rim_offset * cos_phi, self.center[1] - rim_offset * sin_phi])
-    #     center_r = np.array([self.center[0] + rim_offset * cos_phi, self.center[1] + rim_offset * sin_phi])
-
-    #     # draw shapes
-    #     column_l = plt.Circle(center_l, rim_radius, color='r', fill=False)
-    #     column_r = plt.Circle(center_r, rim_radius, color='r', fill=False)
-    #     circle = plt.Circle(self.center, self.radius, color='b', fill=False)
-    #     ax.add_patch(column_l)
-    #     ax.add_patch(column_r)
-    #     ax.add_patch(circle)
-
-
     def render(self, figure, ax):
-        '''ellipital version'''
+        '''circular version'''
         sin_phi = np.sin(self.phi)
         cos_phi = np.cos(self.phi)
 
@@ -117,10 +96,31 @@ class Gate:
         # draw shapes
         column_l = plt.Circle(center_l, rim_radius, color='r', fill=False)
         column_r = plt.Circle(center_r, rim_radius, color='r', fill=False)
-        ellipse = Ellipse(self.center, self.radius * 2, self.minor_radius * 2, angle=self.phi / np.pi * 180, color='b', fill=False)
+        circle = plt.Circle(self.center, self.radius, color='b', fill=False)
         ax.add_patch(column_l)
         ax.add_patch(column_r)
-        ax.add_patch(ellipse)
+        ax.add_patch(circle)
+
+
+    # def render(self, figure, ax):
+    #     '''ellipital version'''
+    #     sin_phi = np.sin(self.phi)
+    #     cos_phi = np.cos(self.phi)
+
+    #     rim_offset  = (GATE_OPENING_SIZE + GATE_RIM_WIDTH) / 2
+    #     rim_radius  = GATE_RIM_WIDTH
+
+    #     # find vertices
+    #     center_l = np.array([self.center[0] - rim_offset * cos_phi, self.center[1] - rim_offset * sin_phi])
+    #     center_r = np.array([self.center[0] + rim_offset * cos_phi, self.center[1] + rim_offset * sin_phi])
+
+    #     # draw shapes
+    #     column_l = plt.Circle(center_l, rim_radius, color='r', fill=False)
+    #     column_r = plt.Circle(center_r, rim_radius, color='r', fill=False)
+    #     ellipse = Ellipse(self.center, self.radius * 2, self.minor_radius * 2, angle=self.phi / np.pi * 180, color='b', fill=False)
+    #     ax.add_patch(column_l)
+    #     ax.add_patch(column_r)
+    #     ax.add_patch(ellipse)
 
 
 class CollisionEnvironment:

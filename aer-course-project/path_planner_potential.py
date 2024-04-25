@@ -397,7 +397,7 @@ class PathPlannerPotential:
         c  = np.linalg.norm(e1 + e2)
 
         # compute the next possible speed
-        speed_next = np.sqrt(v_prev**2 + 2 * MAX_ACCELERATION * a)
+        speed_next = np.sqrt(v_prev**2 + 0.5 * MAX_ACCELERATION * a)
 
         # compute max speed given curvature
         if a == 0 or b == 0:
