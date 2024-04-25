@@ -31,18 +31,16 @@ import numpy as np
 from collections import deque
 
 try:
-    from project_utils import Command, PIDController, timing_step, timing_ep, plot_trajectory, draw_trajectory_in_gui
+    from project_utils import Command, PIDController #, timing_step, timing_ep, plot_trajectory, draw_trajectory_in_gui
 except ImportError:
     # PyTest import.
-    from .project_utils import Command, PIDController, timing_step, timing_ep, plot_trajectory, draw_trajectory_in_gui
+    from .project_utils import Command, PIDController #, timing_step, timing_ep, plot_trajectory, draw_trajectory_in_gui
 
 #########################
 # REPLACE THIS (START) ##
 #########################
 
-from constants import *
-import path_planner as pp
-import path_planner_potential as ppp
+from example_custom_utils import *
 
 gate_order = [3, 0, 2, 1]
 
@@ -127,7 +125,7 @@ class Controller():
         # plot_trajectory(t_scaled, self.waypoints)
 
         # Draw the trajectory on PyBullet's GUI.
-        draw_trajectory_in_gui(initial_info, self.waypoints)
+        # draw_trajectory_in_gui(initial_info, self.waypoints)
 
 
     def planning(self, use_firmware, initial_info):
@@ -139,18 +137,18 @@ class Controller():
 
         # generate trajectory
         if USE_SMOOTH_TRAJECTORY:
-            planner = ppp.PathPlannerPotential(self.initial_obs, initial_info)
+            planner = PathPlannerPotential(self.initial_obs, initial_info)
             waypoints, speeds = planner.plan_trajectory()
             self.speeds = speeds
 
         elif USE_FMT_SMOOTH_TRAJECTORY:
-            planner = pp.PathPlanner(self.initial_obs, initial_info)
+            planner = PathPlanner(self.initial_obs, initial_info)
             path = planner.runFMT()
             waypoints, speeds = planner.initTrajectory(path)
             planner.plotPath(waypoints, speeds)
             self.speeds = speeds
         else:
-            planner = pp.PathPlanner(self.initial_obs, initial_info)
+            planner = PathPlanner(self.initial_obs, initial_info)
             path = planner.runFMT()
             planner.plotPath(path)
 
